@@ -10,3 +10,6 @@ release/
 dist/
 __pycache__/
 *.pyc
+
+# UI 评审用的临时截图（按尺寸分目录，不进版本库）
+docs/review/
