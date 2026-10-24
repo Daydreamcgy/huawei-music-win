@@ -993,20 +993,38 @@ section {
   gap: 12px;
 }
 
+/* 点击可跳转：看得见的只有 2px 细线，命中区放大到 9px，免得点不中。 */
 .mini-progress {
   position: absolute;
   left: 0;
   right: 0;
-  top: -1px;
+  top: -4px;
+  height: 9px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mini-progress::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4px;
   height: 2px;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .mini-progress span {
-  display: block;
-  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 4px;
+  height: 2px;
   background: rgba(255, 255, 255, 0.55);
   transition: width 0.2s linear;
+}
+
+.mini-progress:hover span {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .mini-track {
@@ -1541,6 +1559,267 @@ section {
     opacity: 0;
     transform: translate(-50%, 6px);
   }
+}
+
+/* ── 播放队列（右侧浮层） ───────────────────────────────── */
+
+.queue-panel {
+  position: fixed;
+  z-index: 50;
+  right: 14px;
+  top: calc(var(--titlebar) + 10px);
+  bottom: calc(var(--playerbar) + 10px);
+  width: 328px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: queue-in 0.16s ease;
+}
+
+@keyframes queue-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+.queue-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 10px 11px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.queue-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.queue-head h2 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.queue-sub {
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+.queue-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.queue-head .ghost-button {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11.5px;
+}
+
+.queue-head .ghost-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.queue-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 6px 14px;
+}
+
+/* 滚动到底部时被切一半的那行用渐隐收口，别硬切。 */
+.queue-panel::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 26px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: linear-gradient(to bottom, rgba(20, 20, 24, 0), var(--surface));
+  pointer-events: none;
+}
+
+.queue-section {
+  padding: 2px 0 4px;
+}
+
+.queue-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 10px 4px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.queue-section-count {
+  color: var(--faint);
+  font-weight: 500;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+  transition: background 0.14s ease;
+}
+
+.queue-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.queue-row.is-dim {
+  opacity: 0.55;
+}
+
+.queue-row.is-dim:hover {
+  opacity: 0.85;
+}
+
+.queue-row-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 20px 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.queue-order {
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.queue-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.queue-title {
+  color: var(--text);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-row.is-active .queue-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.queue-artist {
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-remove {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--faint);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.queue-row:hover .queue-remove {
+  opacity: 1;
+}
+
+.queue-remove:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.queue-empty {
+  margin: 8px 12px 10px;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ── 列表右键菜单 ───────────────────────────────────────── */
+
+.track-menu {
+  position: fixed;
+  z-index: 80;
+  padding: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  animation: menu-in 0.12s ease;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.track-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.track-menu-item svg {
+  color: var(--muted);
+}
+
+.track-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.track-menu-item:hover svg {
+  color: var(--text);
+}
+
+.track-menu-item.is-danger,
+.track-menu-item.is-danger svg {
+  color: var(--like);
 }
 
 /* ── 窄窗适配 ───────────────────────────────────────────── */
