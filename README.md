@@ -18,6 +18,12 @@
 |---|---|
 | ![设置](docs/screenshots/settings.png) | ![播放](docs/screenshots/player.png) |
 
+播放队列（右侧抽屉）与歌曲右键菜单：
+
+| 播放队列 | 右键菜单 |
+|---|---|
+| ![播放队列](docs/screenshots/queue.png) | ![右键菜单](docs/screenshots/track-menu.png) |
+
 未登录时的引导页：
 
 ![登录](docs/screenshots/login.png)
