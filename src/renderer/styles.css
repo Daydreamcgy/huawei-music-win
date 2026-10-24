@@ -259,6 +259,7 @@ input {
   -webkit-app-region: drag;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
   padding-left: 22px;
   height: var(--titlebar);
@@ -267,7 +268,6 @@ input {
 
 .titlebar-search {
   -webkit-app-region: no-drag;
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -317,7 +317,6 @@ input {
   -webkit-app-region: no-drag;
   display: flex;
   align-self: stretch;
-  margin-left: 6px;
 }
 
 .window-button {

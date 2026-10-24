@@ -224,17 +224,19 @@ export function App() {
           <span className="brand-name">音乐</span>
         </div>
 
-        <nav className="nav">
-          <button type="button" className={`nav-item ${route === 'home' ? 'is-active' : ''}`} onClick={() => setRoute('home')}>
-            <Home size={17} />
-            首页
-          </button>
-          <button type="button" className={`nav-item ${route === 'favorites' ? 'is-active' : ''}`} onClick={openFavorites}>
-            <Heart size={17} />
-            我的收藏
-            {total > 0 ? <span className="nav-count">{total}</span> : null}
-          </button>
-        </nav>
+        {authenticated ? (
+          <nav className="nav">
+            <button type="button" className={`nav-item ${route === 'home' ? 'is-active' : ''}`} onClick={() => setRoute('home')}>
+              <Home size={17} />
+              首页
+            </button>
+            <button type="button" className={`nav-item ${route === 'favorites' ? 'is-active' : ''}`} onClick={openFavorites}>
+              <Heart size={17} />
+              我的收藏
+              {total > 0 ? <span className="nav-count">{total}</span> : null}
+            </button>
+          </nav>
+        ) : null}
 
         <div className="sidebar-bottom">
           {authenticated ? (
@@ -264,24 +266,26 @@ export function App() {
 
       <div className="stage">
         <header className="titlebar">
-          <label className="titlebar-search">
-            <Search size={14} />
-            <input
-              value={search}
-              onChange={event => {
-                setSearch(event.target.value);
-                if (event.target.value.trim()) setRoute('favorites');
-              }}
-              placeholder="搜索我的收藏"
-              spellCheck={false}
-              aria-label="搜索我的收藏"
-            />
-            {search ? (
-              <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="清空搜索">
-                <X size={13} />
-              </button>
-            ) : null}
-          </label>
+          {authenticated ? (
+            <label className="titlebar-search">
+              <Search size={14} />
+              <input
+                value={search}
+                onChange={event => {
+                  setSearch(event.target.value);
+                  if (event.target.value.trim()) setRoute('favorites');
+                }}
+                placeholder="搜索我的收藏"
+                spellCheck={false}
+                aria-label="搜索我的收藏"
+              />
+              {search ? (
+                <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="清空搜索">
+                  <X size={13} />
+                </button>
+              ) : null}
+            </label>
+          ) : null}
           <WindowControls maximized={maximized} />
         </header>
 
