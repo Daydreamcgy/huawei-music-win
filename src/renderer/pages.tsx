@@ -227,18 +227,21 @@ export function PlaylistScreen({
   playing,
   onPlay,
   onBack,
+  onTrackMenu,
 }: {
   playlist: Playlist;
   currentId?: string;
   playing: boolean;
   onPlay: PlayHandler;
   onBack: () => void;
+  onTrackMenu?: (track: Track, event: React.MouseEvent) => void;
 }) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [nextStart, setNextStart] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const load = useCallback(
@@ -272,6 +275,42 @@ export function PlaylistScreen({
 
   const count = playlist.count || tracks.length;
 
+  /**
+   * 播放全部必须是「整列」，不能只把当前已加载的那一页塞进队列 —— 否则播到
+   * 页尾就绕回开头，听感上就是「反复那几首」。没加载完就先把剩下几页拉全。
+   */
+  const playAll = useCallback(async () => {
+    if (tracks.length === 0) return;
+    if (!hasMore) {
+      onPlay(tracks, 0);
+      return;
+    }
+    setPreparing(true);
+    try {
+      let all = tracks;
+      const seen = new Set(tracks.map(track => track.id));
+      let start = nextStart;
+      let more: boolean = hasMore;
+      for (let page = 0; page < 10 && more; page += 1) {
+        const next = await api.playlistDetail({ id: playlist.id, kind: playlist.kind, start, limit: PAGE_SIZE });
+        const fresh = next.tracks.filter(track => !seen.has(track.id));
+        fresh.forEach(track => seen.add(track.id));
+        all = [...all, ...fresh];
+        start = next.nextStart;
+        more = next.hasMore && next.tracks.length > 0;
+      }
+      setTracks(all);
+      setNextStart(start);
+      setHasMore(more);
+      onPlay(all, 0);
+    } catch {
+      // 补页失败就把手上这些播掉，别让按钮卡住
+      onPlay(tracks, 0);
+    } finally {
+      setPreparing(false);
+    }
+  }, [tracks, hasMore, nextStart, playlist.id, playlist.kind, onPlay]);
+
   return (
     <div className="screen">
       <button type="button" className="detail-back" onClick={onBack}>
@@ -284,9 +323,9 @@ export function PlaylistScreen({
           <h1>{playlist.title}</h1>
           <p className="screen-sub">{loading && tracks.length === 0 ? '正在读取…' : `${count} 首`}</p>
           <div className="detail-actions">
-            <button type="button" className="primary-button" disabled={tracks.length === 0} onClick={() => onPlay(tracks, 0)}>
+            <button type="button" className="primary-button" disabled={tracks.length === 0 || preparing} onClick={() => void playAll()}>
               <Play size={15} fill="currentColor" />
-              <span>播放全部</span>
+              <span>{preparing ? '正在准备…' : '播放全部'}</span>
             </button>
           </div>
         </div>
@@ -315,6 +354,7 @@ export function PlaylistScreen({
               active={currentId === track.id}
               playing={playing && currentId === track.id}
               onPlay={() => onPlay(tracks, i)}
+              onMenu={event => onTrackMenu?.(track, event)}
             />
           ))}
         </div>
@@ -332,11 +372,13 @@ export function SearchScreen({
   currentId,
   playing,
   onPlay,
+  onTrackMenu,
 }: {
   query: string;
   currentId?: string;
   playing: boolean;
   onPlay: PlayHandler;
+  onTrackMenu?: (track: Track, event: React.MouseEvent) => void;
 }) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [total, setTotal] = useState(0);
@@ -414,6 +456,7 @@ export function SearchScreen({
               active={currentId === track.id}
               playing={playing && currentId === track.id}
               onPlay={() => onPlay(tracks, i)}
+              onMenu={event => onTrackMenu?.(track, event)}
             />
           ))}
         </div>
