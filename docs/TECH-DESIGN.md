@@ -1,4 +1,4 @@
-# 技术方案
+﻿# 技术方案
 
 > 目标：在 Windows 上做一个**像鸿蒙原生**的华为音乐客户端。协议层复用已验证的实现，界面从零写。
 
@@ -52,15 +52,14 @@
 ### 3.1 组件树
 
 ```
-App
-├─ sidebar：品牌 / 首页 / 我的收藏（带数量）/ 底部账号块
-├─ main
-│   ├─ LoginScreen          未登录
-│   ├─ HomeScreen           问候 + 继续听 hero + 最近播放 + 收藏速览
-│   └─ FavoritesScreen      搜索筛选 + 播放全部 + 行列表
-├─ MiniPlayer               有当前曲目时常驻
-├─ PlayerScreen             全屏播放页（覆盖层，Esc 关闭）
-├─ login-strip              登录中顶部 48px 取消条
+App（grid：左栏 232px / 右栏；行：内容 / 播放条 76px）
+├─ sidebar              品牌（拖拽区）/ 首页 / 我的收藏（带数量）/ 底部账号块
+├─ stage
+│   ├─ TitleBar         44px 自绘标题栏：搜索框 + 最小化/最大化/关闭
+│   └─ main             LoginScreen | HomeScreen | FavoritesScreen
+├─ MiniPlayer           常驻 76px 播放条（无曲目时是空态）
+├─ PlayerScreen         全屏播放页（覆盖层 from 44px，Esc 关闭）
+├─ login-strip          登录中顶部 48px 取消条
 └─ toast
 ```
 
@@ -117,18 +116,33 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 
 | 令牌 | 值 | 用途 |
 |---|---|---|
-| `--bg` | `#08080a` | 全局底色 |
-| `--surface` / `--surface-2` | `#121216` / `#17171c` | 卡片、输入框 |
-| `--text` / `--muted` / `--faint` | `#f4f4f6` / `#8d8d98` / `#5d5d68` | 三级文字 |
-| `--like` | `#ff3b5c` | 红心、强调 |
-| `--radius-lg/md/sm` | 22 / 14 / 10 px | 大图 / 卡片 / 行 |
+| `--bg` / `--bg-sidebar` / `--bg-bar` | `#0a0a0c` / `#0b0b0e` / `#0b0b0e` | 内容 / 侧栏 / 播放条 |
+| `--surface` / `--surface-2` | `#141418` / `#1b1b21` | 卡片、输入框 |
+| `--text` / `--muted` / `--faint` | `#f2f2f5` / `#9a9aa5` / `#62626d` | 三级文字 |
+| `--like` | `#ff375f` | 红心、强调 |
+| `--radius-xl/lg/md/sm` | 20 / 14 / 10 / 7 px | banner / 卡片 / 行 / 小控件 |
 | `--sidebar` | 232px | 侧栏宽度 |
-| `--mini` | 76px | 迷你播放条高度 |
+| `--titlebar` | 44px | 自绘标题栏高度（登录视图也按这个内缩） |
+| `--playerbar` | 76px | 常驻播放条高度 |
 
-排版：主标题 26px/600、hero 标题 34px/600、区块标题 19px/600、正文 14px、次级 12px。
-字体栈优先 `HarmonyOS Sans SC`，回退 `Microsoft YaHei UI`。
+排版：页面标题 27px/600、banner 标题 30px/600、区块标题 18px/600、行标题 13px/500、正文 14px、次级 12px。
+字体栈优先 `HarmonyOS Sans SC`，回退 `MiSans` / `Microsoft YaHei UI`。
 
-**动效克制**：卡片 hover `translateY(-3px)`，播放页 240ms 上浮淡入，红心/进度 160ms 过渡。不做弹跳、不做彩色阴影。
+**动效克制**：卡片 hover `translateY(-3px)`、播放页 220ms 上浮淡入、红心/进度 160ms 过渡。不做弹跳、不做彩色阴影。
+
+### 4.1 窗口外壳
+
+- `BrowserWindow` 用 `frame: false` + `backgroundColor: '#08080a'`，没有系统标题栏，避免顶部出现一条割裂的白条。
+- 标题栏与侧栏品牌区用 `-webkit-app-region: drag` 拖拽；搜索框、导航、窗口按钮显式 `no-drag`，否则点不到。
+- 最小化/最大化/关闭走 IPC：`window:minimize` `window:toggle-maximize` `window:close`；最大化状态由主进程 `maximize`/`unmaximize` 事件推回渲染层（`window:maximized-changed`），按钮图标随之切换。
+- 应用图标：`build/icon-src.png`（用户提供的官方图标）→ `scripts/make-icon.mjs` → `build/icon.png`(512) / `build/icon.ico`(16–256) / `build/tray.png` / `src/renderer/assets/app-icon.png`。主进程窗口图标、`build.win.icon`、侧栏品牌、启动页都取这一份。
+
+### 4.2 大屏/全屏布局规则
+
+- `.screen` 内容 `max-width: 1680px` 居中；再宽也不会把卡片拉成一条。
+- 卡片列用 `auto-fill` + `minmax(155px, 1fr)`，列数随宽度自然增减；横滑区用 `grid-auto-columns: clamp(158px, 11vw, 190px)`，卡宽有上下限。
+- 播放页三行（head / body / foot）统一 `max-width: 1080px` 居中；body 两栏 `340px + 1fr`，歌词块整体居中排版，宽屏下左右留白对称。
+- 列表行 `56px`，列宽用 `minmax()` 收放；收藏页专辑列上限 320px，避免宽屏把标题和专辑拉得太远。
 
 ## 5. 实现决策与坑
 
@@ -151,7 +165,7 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 
 ## 7. 验证手段
 
-- **CDP 截图**：`node tools/shots.mjs`，Playwright 连 `--remote-debugging-port=9222`，走 DOM 事件点击（窗口被遮挡时也能跑），产物进 `docs/screenshots/`。
+- **CDP 截图**：`node tools/shots.mjs`（窗口尺寸）/ `node tools/shots.mjs fullscreen`（最大化后跑同一脚本），Playwright 连 `--remote-debugging-port=9222`，走 DOM 事件点击（窗口被遮挡时也能跑），产物进 `docs/screenshots/`。
 - **类型/构建**：`npx tsc --noEmit`、`npm run build` 必须全绿。
 - **人工清单**：登录 → 首页数据 → 收藏翻页 → 播放 3 首 → 拖进度 → 切循环 → 重启恢复队列。
 

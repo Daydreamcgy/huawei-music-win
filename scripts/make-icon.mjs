@@ -1,78 +1,83 @@
-// Draws app + tray icons from the open-source Lucide "Music" glyph (ISC).
-// Run with: xvfb-run -a ./node_modules/.bin/electron --no-sandbox scripts/make-icon.mjs
-// Outputs: build/icon.png (512, used by electron-builder), build/tray.png (32) and
-// src/main/icons.ts (base64 tray bitmap embedded in the app).
-import { app, BrowserWindow } from 'electron';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+// 从 build/icon-src.png（华为音乐图标，个人使用）生成各尺寸图标。
+// 运行：Remove-Item Env:ELECTRON_RUN_AS_NODE; node_modules\electron\dist\electron.exe scripts/make-icon.mjs
+// 产物：build/icon.png(512) / build/icon.ico(多尺寸) / build/tray.png(32) /
+//       src/renderer/assets/app-icon.png(256) / src/main/icons.ts(托盘 base64)
+import { app, nativeImage } from 'electron';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-function iconNodes(name) {
-  const source = readFileSync(join(root, 'node_modules/lucide-react/dist/esm/icons', `${name}.js`), 'utf8');
-  const match = /createLucideIcon\("[^"]+",\s*(\[[\s\S]*?\])\s*\);/.exec(source);
-  if (!match) throw new Error(`cannot read Lucide icon ${name}`);
-  // Lucide ships an object literal with unquoted keys, so evaluate it instead of JSON.parse.
-  return new Function(`return ${match[1]}`)();
+function resize(source, size) {
+  return source.resize({ width: size, height: size, quality: 'best' }).toPNG();
 }
 
-function render(nodes, size) {
-  const shape = nodes.map(([tag, attrs]) => {
-    const attributes = Object.entries(attrs).filter(([key]) => key !== 'key')
-      .map(([key, value]) => `${key}="${value}"`).join(' ');
-    return `<${tag} ${attributes}/>`;
-  }).join('');
-  // 24x24 glyph scaled into a rounded brand square.
-  const scale = (size * 0.58) / 24;
-  const offset = (size - 24 * scale) / 2;
-  return `<!doctype html><meta charset="utf-8"><body style="margin:0;background:transparent">
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <rect width="${size}" height="${size}" rx="${size * 0.22}" ry="${size * 0.22}" fill="#1b4037"/>
-      <g transform="translate(${offset} ${offset}) scale(${scale})" fill="none" stroke="#f2fbf0"
-         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${shape}</g>
-    </svg></body>`;
-}
+// ICO：PNG 帧 + 目录项，Vista 以后原生支持
+function buildIco(frames) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(frames.length, 4);
 
-// Both sizes are rendered side by side in one window: shrinking a real window below the
-// 512px layout makes Chromium stop producing frames here, so the small icon is captured
-// from its own rect instead.
-async function captureAll(nodes, sizes) {
-  const gap = 24;
-  const canvas = sizes.reduce((sum, size) => sum + size + gap, 0);
-  const height = Math.max(...sizes);
-  const window = new BrowserWindow({ width: canvas, height, frame: false, useContentSize: true });
-  const offsets = [];
-  let x = gap;
-  for (const size of sizes) { offsets.push({ x, y: 0, width: size, height: size }); x += size + gap; }
-  const body = offsets.map((rect, index) => `<div style="position:absolute;left:${rect.x}px;top:0">${render(nodes, sizes[index])}</div>`).join('');
-  try {
-    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><meta charset="utf-8"><body style="margin:0;background:transparent">${body}</body>`)}`);
-    await new Promise(resolve => setTimeout(resolve, 250));
-    const shots = [];
-    for (const rect of offsets) {
-      const png = (await window.webContents.capturePage(rect)).toPNG();
-      if (!png.length) throw new Error(`icon capture at ${rect.width} produced no pixels`);
-      shots.push(png);
-    }
-    return shots;
-  } finally { if (!window.isDestroyed()) window.destroy(); }
+  const entries = [];
+  let offset = 6 + 16 * frames.length;
+  for (const frame of frames) {
+    const entry = Buffer.alloc(16);
+    const dim = frame.size >= 256 ? 0 : frame.size;
+    entry.writeUInt8(dim, 0);
+    entry.writeUInt8(dim, 1);
+    entry.writeUInt8(0, 2);
+    entry.writeUInt8(0, 3);
+    entry.writeUInt16LE(1, 4);
+    entry.writeUInt16LE(32, 6);
+    entry.writeUInt32LE(frame.png.length, 8);
+    entry.writeUInt32LE(offset, 12);
+    entries.push(entry);
+    offset += frame.png.length;
+  }
+
+  return Buffer.concat([header, ...entries, ...frames.map(frame => frame.png)]);
 }
 
 async function main() {
-  const [large, tray] = await captureAll(iconNodes('music'), [512, 32]);
+  const source = nativeImage.createFromBuffer(await readFile(join(root, 'build/icon-src.png')));
+  if (source.isEmpty()) throw new Error('build/icon-src.png 读不出来');
+
+  const icoSizes = [16, 24, 32, 48, 64, 128, 256];
+  const frames = icoSizes.map(size => ({ size, png: resize(source, size) }));
+
   await mkdir(join(root, 'build'), { recursive: true });
-  await writeFile(join(root, 'build', 'icon.png'), large);
-  await writeFile(join(root, 'build', 'tray.png'), tray);
-  await writeFile(join(root, 'src/main/icons.ts'),
-    '// Generated by scripts/make-icon.mjs from the Lucide "Music" glyph (ISC). Do not edit by hand.\n'
-    + `export const TRAY_ICON_PNG_BASE64 = '${tray.toString('base64')}';\n`);
-  process.stdout.write(`icon ok large=${large.length} tray=${tray.length}\n`);
+  await mkdir(join(root, 'src/renderer/assets'), { recursive: true });
+
+  await writeFile(join(root, 'build/icon.png'), resize(source, 512));
+  await writeFile(join(root, 'build/icon.ico'), buildIco(frames));
+  await writeFile(join(root, 'build/tray.png'), resize(source, 32));
+  await writeFile(join(root, 'src/renderer/assets/app-icon.png'), resize(source, 256));
+
+  const tray = resize(source, 32);
+  await writeFile(
+    join(root, 'src/main/icons.ts'),
+    '// Generated by scripts/make-icon.mjs from build/icon-src.png. Do not edit by hand.\n'
+      + `export const TRAY_ICON_PNG_BASE64 = '${tray.toString('base64')}';\n`,
+  );
+
+  process.stdout.write(`icon ok ico=${frames.length} sizes\n`);
 }
 
-const guard = setTimeout(() => { process.stderr.write('icon generation timed out\n'); app.exit(1); }, 30_000);
+const guard = setTimeout(() => {
+  process.stderr.write('icon generation timed out\n');
+  app.exit(1);
+}, 20_000);
+
 app.whenReady().then(main).then(
-  () => { clearTimeout(guard); setTimeout(() => app.exit(0), 150); },
-  error => { clearTimeout(guard); process.stderr.write(`icon generation failed: ${error?.message ?? error}\n`); app.exit(1); },
+  () => {
+    clearTimeout(guard);
+    setTimeout(() => app.exit(0), 100);
+  },
+  error => {
+    clearTimeout(guard);
+    process.stderr.write(`icon generation failed: ${error?.message ?? error}\n`);
+    app.exit(1);
+  },
 );

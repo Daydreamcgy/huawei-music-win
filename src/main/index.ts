@@ -30,8 +30,12 @@ if (!hasSingleInstance) app.quit();
 
 async function createWindow(): Promise<void> {
   const window = new BrowserWindow({
-    width: 1180, height: 760, minWidth: 960, minHeight: 640,
+    width: 1320, height: 840, minWidth: 960, minHeight: 620,
     title: APP_DISPLAY_NAME,
+    icon: join(__dirname, '../../build/icon.png'),
+    // 无系统标题栏：顶部控制条由渲染层自己画，窗口内容和边框融为一体。
+    frame: false,
+    backgroundColor: '#08080a',
     // No in-window menu bar on Windows/Linux; the menu is removed below.
     autoHideMenuBar: true,
     webPreferences: {
@@ -41,6 +45,13 @@ async function createWindow(): Promise<void> {
   });
   mainWindow = window;
   window.once('closed', () => { if (mainWindow === window) mainWindow = null; });
+  // 最大化状态回推给渲染层，用来切换「还原/最大化」图标。
+  const pushMaximized = () => {
+    if (window.isDestroyed()) return;
+    window.webContents.send('window:maximized-changed', window.isMaximized());
+  };
+  window.on('maximize', pushMaximized);
+  window.on('unmaximize', pushMaximized);
   // Default is a real quit; hiding to the tray only happens when the user opts in.
   window.on('close', event => {
     if (quitting || closeBehavior !== 'tray' || !tray) return;

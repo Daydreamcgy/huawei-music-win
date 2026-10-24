@@ -69,8 +69,20 @@ function Scrubber({
 
 export function MiniPlayer({ player, onExpand }: { player: Player; onExpand: () => void }) {
   const track = player.current;
-  if (!track) return null;
   const percent = player.duration > 0 ? (player.position / player.duration) * 100 : 0;
+
+  // 播放条常驻：没在播放时也占位，桌面端不该因为它消失而整页跳动。
+  if (!track) {
+    return (
+      <div className="mini-player is-idle">
+        <div className="mini-idle">
+          <span className="mini-idle-art">♪</span>
+          <span className="mini-idle-text">未在播放</span>
+        </div>
+        <span className="mini-hint">从收藏里挑一首开始</span>
+      </div>
+    );
+  }
 
   return (
     <div className="mini-player">

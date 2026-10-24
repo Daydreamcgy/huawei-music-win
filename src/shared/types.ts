@@ -160,7 +160,14 @@ export type DesktopApi = {
     load(): Promise<Result<SavedQueue | null>>;
     save(input: SavedQueue): Promise<Result<void>>;
   };
-  window: { minimize(): Promise<void>; setCloseBehavior(input: 'quit' | 'tray'): Promise<Result<AppSettings>> };
+  window: {
+    minimize(): Promise<void>;
+    toggleMaximize(): Promise<void>;
+    close(): Promise<void>;
+    isMaximized(): Promise<boolean>;
+    onMaximized(listener: (maximized: boolean) => void): () => void;
+    setCloseBehavior(input: 'quit' | 'tray'): Promise<Result<AppSettings>>;
+  };
   fonts: { list(): Promise<Result<{ families: string[] }>> };
   lyrics: {
     /** Opens a picker; resolves null when the user cancels. */

@@ -205,5 +205,12 @@ export function registerIpc(
     return ok(next);
   });
   ipcMain.handle(channels.windowMinimize, async event => { guard(event); window.minimize(); });
+  ipcMain.handle(channels.windowToggleMaximize, async event => {
+    guard(event);
+    if (window.isMaximized()) window.unmaximize();
+    else window.maximize();
+  });
+  ipcMain.handle(channels.windowClose, async event => { guard(event); window.close(); });
+  ipcMain.handle(channels.windowMaximized, async event => { guard(event); return window.isMaximized(); });
   ipcMain.handle(channels.appQuit, async event => { guard(event); app.quit(); });
 }

@@ -1,17 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Disc3, Heart, Home, LogOut, Music2 } from 'lucide-react';
+import { Copy, Disc3, Heart, Home, LogOut, Minus, Search, Square, X } from 'lucide-react';
 import type { AppSettings, AuthStatus, Track } from '../shared/types';
 import { api } from './lib/api';
 import { usePlayer } from './lib/player';
 import { FavoritesScreen, HomeScreen, LoginScreen } from './screens';
 import { MiniPlayer, PlayerScreen } from './PlayerView';
+import logo from './assets/app-icon.png';
 
 type Route = 'home' | 'favorites';
+
+function WindowControls({ maximized }: { maximized: boolean }) {
+  return (
+    <div className="window-controls">
+      <button type="button" className="window-button" onClick={() => void api.window.minimize()} aria-label="最小化" title="最小化">
+        <Minus size={15} />
+      </button>
+      <button
+        type="button"
+        className="window-button"
+        onClick={() => void api.window.toggleMaximize()}
+        aria-label={maximized ? '还原' : '最大化'}
+        title={maximized ? '还原' : '最大化'}
+      >
+        {maximized ? <Copy size={13} /> : <Square size={12} />}
+      </button>
+      <button type="button" className="window-button is-close" onClick={() => void api.window.close()} aria-label="关闭" title="关闭">
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
 
 export function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [booting, setBooting] = useState(true);
   const [route, setRoute] = useState<Route>('home');
+  const [search, setSearch] = useState('');
+  const [maximized, setMaximized] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [loginPending, setLoginPending] = useState(false);
@@ -60,6 +85,12 @@ export function App() {
     })();
   }, []);
 
+  // 无边框窗口：跟踪最大化状态，双击标题栏也能同步图标。
+  useEffect(() => {
+    void api.window.isMaximized().then(setMaximized).catch(() => undefined);
+    return api.window.onMaximized(setMaximized);
+  }, []);
+
   const loadLibrary = useCallback(async () => {
     setLibraryLoading(true);
     setLibraryError(null);
@@ -98,7 +129,7 @@ export function App() {
     return () => window.clearTimeout(saveTimer.current);
   }, [player.queue, player.index]);
 
-  // 空格：播放/暂停（输入框里不抢键）。
+  // 空格：播放/暂停（输入框里不抢键）；Esc 收播放页。
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -107,6 +138,7 @@ export function App() {
         event.preventDefault();
         player.toggle();
       }
+      if (event.key === 'Escape') setPlayerOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -164,13 +196,21 @@ export function App() {
     [showToast],
   );
 
+  const openFavorites = useCallback(() => {
+    if (!auth?.authenticated) {
+      showToast('先登录才能读取收藏。');
+      return;
+    }
+    setRoute('favorites');
+  }, [auth?.authenticated, showToast]);
+
   const authenticated = Boolean(auth?.authenticated);
   const displayName = auth?.displayName;
 
   if (booting) {
     return (
       <div className="boot-screen">
-        <div className="boot-mark">♪</div>
+        <img src={logo} alt="" className="boot-logo" />
         <span>正在启动…</span>
       </div>
     );
@@ -180,33 +220,17 @@ export function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">
-            <Music2 size={18} />
-          </span>
+          <img src={logo} alt="" className="brand-icon" />
           <span className="brand-name">音乐</span>
         </div>
 
         <nav className="nav">
-          <button
-            type="button"
-            className={`nav-item ${route === 'home' ? 'is-active' : ''}`}
-            onClick={() => setRoute('home')}
-          >
-            <Home size={18} />
+          <button type="button" className={`nav-item ${route === 'home' ? 'is-active' : ''}`} onClick={() => setRoute('home')}>
+            <Home size={17} />
             首页
           </button>
-          <button
-            type="button"
-            className={`nav-item ${route === 'favorites' ? 'is-active' : ''}`}
-            onClick={() => {
-              if (!authenticated) {
-                showToast('先登录才能读取收藏。');
-                return;
-              }
-              setRoute('favorites');
-            }}
-          >
-            <Heart size={18} />
+          <button type="button" className={`nav-item ${route === 'favorites' ? 'is-active' : ''}`} onClick={openFavorites}>
+            <Heart size={17} />
             我的收藏
             {total > 0 ? <span className="nav-count">{total}</span> : null}
           </button>
@@ -220,56 +244,88 @@ export function App() {
                 <span className="account-name">{displayName ?? '已登录'}</span>
                 <span className="account-sub">华为账号</span>
               </div>
-              <button type="button" className="icon-button" onClick={() => void handleLogout()} title="退出登录" aria-label="退出登录">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => void handleLogout()}
+                title="退出登录"
+                aria-label="退出登录"
+              >
                 <LogOut size={15} />
               </button>
             </div>
           ) : (
             <button type="button" className="ghost-button" onClick={() => void handleLogin()} disabled={loginPending}>
-              <Disc3 size={16} /> 登录华为账号
+              <Disc3 size={15} /> 登录华为账号
             </button>
           )}
         </div>
       </aside>
 
-      <main className="main">
-        {!authenticated ? (
-          <LoginScreen pending={loginPending} message={loginMessage} onLogin={() => void handleLogin()} />
-        ) : route === 'home' ? (
-          <HomeScreen
-            history={history}
-            favorites={favorites}
-            total={total}
-            loading={libraryLoading}
-            displayName={displayName}
-            currentId={player.current?.id}
-            playing={player.playing}
-            onPlay={(tracks, index) => {
-              player.playFrom(tracks, index);
-              setPlayerOpen(true);
-            }}
-            onOpenFavorites={() => setRoute('favorites')}
-          />
-        ) : (
-          <FavoritesScreen
-            tracks={favorites}
-            total={total}
-            loading={libraryLoading}
-            currentId={player.current?.id}
-            playing={player.playing}
-            onPlay={(tracks, index) => {
-              player.playFrom(tracks, index);
-              setPlayerOpen(true);
-            }}
-            onToggleFavorite={track => void handleToggleFavorite(track)}
-          />
-        )}
-        {libraryError && authenticated ? <div className="inline-error">{libraryError}</div> : null}
-      </main>
+      <div className="stage">
+        <header className="titlebar">
+          <label className="titlebar-search">
+            <Search size={14} />
+            <input
+              value={search}
+              onChange={event => {
+                setSearch(event.target.value);
+                if (event.target.value.trim()) setRoute('favorites');
+              }}
+              placeholder="搜索我的收藏"
+              spellCheck={false}
+              aria-label="搜索我的收藏"
+            />
+            {search ? (
+              <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="清空搜索">
+                <X size={13} />
+              </button>
+            ) : null}
+          </label>
+          <WindowControls maximized={maximized} />
+        </header>
 
-      {playerOpen && <PlayerScreen player={player} onClose={() => setPlayerOpen(false)} />}
+        <main className="main">
+          {!authenticated ? (
+            <LoginScreen pending={loginPending} message={loginMessage} onLogin={() => void handleLogin()} />
+          ) : route === 'home' ? (
+            <HomeScreen
+              history={history}
+              favorites={favorites}
+              total={total}
+              loading={libraryLoading}
+              displayName={displayName}
+              currentId={player.current?.id}
+              playing={player.playing}
+              onPlay={(tracks, index) => {
+                player.playFrom(tracks, index);
+                setPlayerOpen(true);
+              }}
+              onOpenFavorites={openFavorites}
+            />
+          ) : (
+            <FavoritesScreen
+              tracks={favorites}
+              total={total}
+              loading={libraryLoading}
+              currentId={player.current?.id}
+              playing={player.playing}
+              filter={search}
+              onFilterChange={setSearch}
+              onPlay={(tracks, index) => {
+                player.playFrom(tracks, index);
+                setPlayerOpen(true);
+              }}
+              onToggleFavorite={track => void handleToggleFavorite(track)}
+            />
+          )}
+          {libraryError && authenticated ? <div className="inline-error">{libraryError}</div> : null}
+        </main>
+      </div>
 
       <MiniPlayer player={player} onExpand={() => setPlayerOpen(true)} />
+
+      {playerOpen && <PlayerScreen player={player} onClose={() => setPlayerOpen(false)} />}
 
       {loginPending ? (
         <div className="login-strip">

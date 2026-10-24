@@ -51,6 +51,14 @@ const api: DesktopApi = {
   },
   window: {
     minimize: () => ipcRenderer.invoke(channels.windowMinimize),
+    toggleMaximize: () => ipcRenderer.invoke(channels.windowToggleMaximize),
+    close: () => ipcRenderer.invoke(channels.windowClose),
+    isMaximized: () => ipcRenderer.invoke(channels.windowMaximized),
+    onMaximized: listener => {
+      const handler = (_event: unknown, maximized: boolean) => listener(maximized);
+      ipcRenderer.on('window:maximized-changed', handler);
+      return () => ipcRenderer.removeListener('window:maximized-changed', handler);
+    },
     setCloseBehavior: input => ipcRenderer.invoke(channels.windowSetCloseBehavior, input),
   },
   app: { quit: () => ipcRenderer.invoke(channels.appQuit) },

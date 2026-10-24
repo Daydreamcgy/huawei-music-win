@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
-import { ChevronRight, Heart, Play, Search } from 'lucide-react';
+﻿import { useMemo } from 'react';
+import { ChevronRight, Play, Search } from 'lucide-react';
 import type { Track } from '../shared/types';
 import { artistsOf, Cover, EmptyState, formatTime, SectionHeader, SkeletonRows, TrackRow } from './ui';
+
+type PlayHandler = (tracks: Track[], index: number) => void;
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -11,8 +13,6 @@ function greeting(): string {
   if (hour < 18) return '下午好';
   return '晚上好';
 }
-
-type PlayHandler = (tracks: Track[], index: number) => void;
 
 export function HomeScreen({
   history,
@@ -38,34 +38,36 @@ export function HomeScreen({
   // 首屏大图优先挑有封面的：历史里偶尔混进没有封面的条目，空白卡片很伤观感。
   const heroPool = [...history, ...favorites];
   const hero = heroPool.find(track => track.coverUrl) ?? heroPool[0];
-  const recents = history.slice(0, 12);
+  const recents = history.slice(0, 10);
   const picks = favorites.slice(0, 12);
 
   return (
     <div className="screen">
       <header className="screen-head">
-        <h1>
-          {greeting()}
-          {displayName ? `，${displayName}` : ''}
-        </h1>
-        <p className="screen-sub">今天想听点什么？</p>
+        <div>
+          <h1>
+            {greeting()}
+            {displayName ? `，${displayName}` : ''}
+          </h1>
+          <p className="screen-sub">今天想听点什么？</p>
+        </div>
       </header>
 
       {hero ? (
-        <section className="hero" style={{ ['--hero-cover' as string]: `url(${hero.coverUrl ?? ''})` }}>
+        <section
+          className="hero"
+          style={{ ['--hero-cover' as string]: hero.coverUrl ? `url(${hero.coverUrl})` : 'none' }}
+        >
           <div className="hero-copy">
             <span className="hero-tag">继续听</span>
             <h2 className="hero-title">{hero.title}</h2>
             <p className="hero-artist">{artistsOf(hero)}</p>
             <div className="hero-actions">
               <button type="button" className="primary-button" onClick={() => onPlay(heroPool, 0)}>
-                <Play size={16} fill="currentColor" /> 播放
+                <Play size={15} fill="currentColor" /> 播放
               </button>
               {hero.durationSeconds ? <span className="hero-meta">{formatTime(hero.durationSeconds)}</span> : null}
             </div>
-          </div>
-          <div className="hero-art">
-            <Cover src={hero.coverUrl} radius={18} className="hero-cover" />
           </div>
         </section>
       ) : null}
@@ -83,7 +85,12 @@ export function HomeScreen({
                 className={`card ${currentId === track.id ? 'is-active' : ''}`}
                 onClick={() => onPlay(recents, i)}
               >
-                <Cover src={track.coverUrl} radius={14} />
+                <span className="card-art">
+                  <Cover src={track.coverUrl} radius={12} />
+                  <span className="card-play">
+                    <Play size={15} fill="currentColor" />
+                  </span>
+                </span>
                 <span className="card-title">{track.title}</span>
                 <span className="card-sub">{artistsOf(track)}</span>
               </button>
@@ -107,7 +114,7 @@ export function HomeScreen({
         {loading && picks.length === 0 ? (
           <SkeletonRows count={3} />
         ) : picks.length ? (
-          <div className="card-row">
+          <div className="card-grid">
             {picks.map((track, i) => (
               <button
                 type="button"
@@ -115,7 +122,12 @@ export function HomeScreen({
                 className={`card ${currentId === track.id ? 'is-active' : ''}`}
                 onClick={() => onPlay(favorites, i)}
               >
-                <Cover src={track.coverUrl} radius={14} />
+                <span className="card-art">
+                  <Cover src={track.coverUrl} radius={12} />
+                  <span className="card-play">
+                    <Play size={15} fill="currentColor" />
+                  </span>
+                </span>
                 <span className="card-title">{track.title}</span>
                 <span className="card-sub">{artistsOf(track)}</span>
               </button>
@@ -135,6 +147,8 @@ export function FavoritesScreen({
   loading,
   currentId,
   playing,
+  filter,
+  onFilterChange,
   onPlay,
   onToggleFavorite,
 }: {
@@ -143,19 +157,19 @@ export function FavoritesScreen({
   loading: boolean;
   currentId?: string;
   playing: boolean;
+  filter: string;
+  onFilterChange: (value: string) => void;
   onPlay: PlayHandler;
   onToggleFavorite: (track: Track) => void;
 }) {
-  const [keyword, setKeyword] = useState('');
-
   const filtered = useMemo(() => {
-    const key = keyword.trim().toLowerCase();
+    const key = filter.trim().toLowerCase();
     if (!key) return tracks;
     return tracks.filter(track => {
       const haystack = `${track.title} ${artistsOf(track)} ${track.album?.title ?? ''}`.toLowerCase();
       return haystack.includes(key);
     });
-  }, [keyword, tracks]);
+  }, [filter, tracks]);
 
   return (
     <div className="screen">
@@ -163,39 +177,34 @@ export function FavoritesScreen({
         <div>
           <h1>我的收藏</h1>
           <p className="screen-sub">
-            {loading && tracks.length === 0 ? '正在读取收藏…' : `共 ${total || tracks.length} 首`}
+            {loading && tracks.length === 0
+              ? '正在读取收藏…'
+              : filter
+                ? `找到 ${filtered.length} 首`
+                : `共 ${total || tracks.length} 首`}
           </p>
         </div>
-        <div className="favorites-tools">
-          <label className="search-field">
-            <Search size={15} />
-            <input
-              value={keyword}
-              onChange={event => setKeyword(event.target.value)}
-              placeholder="筛选收藏"
-              spellCheck={false}
-            />
-          </label>
-          <button
-            type="button"
-            className="primary-button"
-            disabled={filtered.length === 0}
-            onClick={() => onPlay(filtered, 0)}
-          >
-            <Play size={16} fill="currentColor" /> 播放全部
-          </button>
-        </div>
+        <button type="button" className="primary-button" disabled={filtered.length === 0} onClick={() => onPlay(filtered, 0)}>
+          <Play size={15} fill="currentColor" /> 播放全部
+        </button>
       </header>
 
       {loading && tracks.length === 0 ? (
         <SkeletonRows count={10} />
       ) : filtered.length === 0 ? (
         <EmptyState
-          title={keyword ? '没有匹配的歌' : '收藏还是空的'}
-          hint={keyword ? '换个关键词试试' : '在华为音乐里红心的歌会出现在这里'}
+          title={filter ? '没有匹配的歌' : '收藏还是空的'}
+          hint={filter ? '换个关键词试试' : '在华为音乐里红心的歌会出现在这里'}
         />
       ) : (
         <div className="track-list">
+          <div className="track-list-head">
+            <span className="track-index">#</span>
+            <span />
+            <span>标题</span>
+            <span className="track-album">专辑</span>
+            <span />
+          </div>
           {filtered.map((track, i) => (
             <TrackRow
               key={track.id}
@@ -210,6 +219,12 @@ export function FavoritesScreen({
           ))}
         </div>
       )}
+
+      {filter && filtered.length === 0 ? (
+        <button type="button" className="ghost-link" onClick={() => onFilterChange('')}>
+          <Search size={14} /> 清空筛选
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -226,9 +241,7 @@ export function LoginScreen({
   return (
     <div className="login-screen">
       <div className="login-card">
-        <div className="login-mark">
-          <span>♪</span>
-        </div>
+        <div className="login-mark">♪</div>
         <h1>华为音乐</h1>
         <p className="login-desc">用华为账号登录，读取你的收藏与歌单。</p>
         <button type="button" className="primary-button login-button" onClick={onLogin} disabled={pending}>
@@ -241,9 +254,7 @@ export function LoginScreen({
         </p>
         {message ? <p className="login-status">{message}</p> : null}
       </div>
-      <div className="login-orbit" aria-hidden="true">
-        <Heart />
-      </div>
     </div>
   );
 }
+

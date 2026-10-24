@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Heart, Loader2, Pause, Play } from 'lucide-react';
 import type { Track } from '../shared/types';
 
@@ -136,7 +136,6 @@ export function TrackRow({
         <div className="track-sub">{artistsOf(track)}</div>
       </div>
       {showAlbum ? <div className="track-album">{track.album?.title ?? ''}</div> : null}
-      <div className="track-duration">{track.durationSeconds ? formatTime(track.durationSeconds) : ''}</div>
       {onToggleFavorite ? (
         <button
           type="button"
@@ -180,3 +179,4 @@ export function SkeletonRows({ count = 8 }: { count?: number }) {
     </div>
   );
 }
+

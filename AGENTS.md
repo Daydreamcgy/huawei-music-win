@@ -1,4 +1,4 @@
-# 本项目须知（UI 重构版，先读这段）
+﻿# 本项目须知（UI 重构版，先读这段）
 
 从 2026-10-24 起，这个目录是**按鸿蒙电脑版观感重做的新客户端**，渲染层全部重写，
 主进程/协议层沿用上一版（`..\huawei-music\app`，只读参考，不要改那个目录）。
@@ -57,6 +57,6 @@ node tools/shots.mjs                                                 # 需要先
 - 不创建复杂抽象、插件框架、后端服务、云端令牌代理或移动端工程。
 - 二进制只通过 GitHub Release 发布（未签名测试构建），发布说明必须写明未签名、非官方、OAuth 身份不属于本项目；不要另开对象存储/网盘等公开分发渠道。
 - 不擅自公开仓库/产物、变更系统代理或删除研究现场。
-- 应用/托盘图标由 `scripts/make-icon.mjs` 从 Lucide（ISC）生成；换图标要重跑脚本并保留 `build/icon.LICENSE.txt` 归属声明。
+- 应用/托盘图标用用户提供的华为音乐图标（`build/icon-src.png`），由 `scripts/make-icon.mjs` 生成 png/ico/托盘；只用于个人使用，不随产物公开分发。
 - 不要恢复 Electron 默认菜单栏（Windows/Linux 应为无菜单，macOS 仅最小角色）；显示名统一用 `src/shared/app-name.mjs`，不得改 `package.json` 的 `name`（会挪动 userData 路径、丢旧数据）。
 - 实现阶段维护简短 `docs/IMPLEMENTATION_STATUS.md`，按真实证据标 pending/in-progress/verified；没有测试的平台不宣称支持已验收。

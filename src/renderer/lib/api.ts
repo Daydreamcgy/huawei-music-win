@@ -83,6 +83,14 @@ export const api = {
   loadQueue: () => window.desktop.queue.load().catch(() => null),
   saveQueue: (tracks: Track[], index: number, positionSeconds: number) =>
     window.desktop.queue.save({ tracks, index, positionSeconds }).catch(() => null),
+
+  window: {
+    minimize: () => window.desktop.window.minimize().catch(() => undefined),
+    toggleMaximize: () => window.desktop.window.toggleMaximize().catch(() => undefined),
+    close: () => window.desktop.window.close().catch(() => undefined),
+    isMaximized: () => window.desktop.window.isMaximized().catch(() => false),
+    onMaximized: (listener: (maximized: boolean) => void) => window.desktop.window.onMaximized(listener),
+  },
 };
 
 export type { AuthStatus, Track };
