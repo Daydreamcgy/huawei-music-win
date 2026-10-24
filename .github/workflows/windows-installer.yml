@@ -1,0 +1,133 @@
+name: Windows installer build (unsigned)
+
+# Builds, verifies and publishes the Windows NSIS installer on every push to main, on demand,
+# or on a version tag. The release holds an unsigned, unofficial study build; see the release
+# notes for the caveats. Pushes reuse the v<package.json version> tag/release and overwrite the
+# asset, so the Release always points at the newest main build.
+on:
+  workflow_dispatch:
+    inputs:
+      smoke:
+        description: Also run the Windows Electron smoke test (installs ffmpeg, uses more minutes)
+        type: boolean
+        default: false
+      release:
+        description: Publish/refresh the GitHub Release for the current version tag
+        type: boolean
+        default: true
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Electron and electron-builder download large binaries; caching them saves minutes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Offline unit tests
+        run: npm test
+
+      - name: Build Windows installer (NSIS)
+        run: npm run dist:win
+
+      - name: Verify installer (static, no execution)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem release/win-x64/*.exe | Select-Object -First 1
+          if (-not $exe) { throw 'no NSIS installer was produced' }
+          npm run test:windows-installer -- $exe.FullName
+
+      - name: Write SHA256SUMS
+        run: node scripts/release-checksums.mjs release/win-x64
+
+      - name: Show checksums
+        shell: pwsh
+        run: Get-Content release/win-x64/SHA256SUMS
+
+      # Optional: verifies the real Electron runtime on Windows. The audio fixtures need ffmpeg,
+      # which is not preinstalled on the runner. Not part of the default run because it costs
+      # extra minutes and the static check above already guards the artifact.
+      - name: Install ffmpeg for audio fixtures
+        if: ${{ inputs.smoke == true }}
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Windows Electron smoke (optional)
+        if: ${{ inputs.smoke == true }}
+        continue-on-error: true
+        run: npm run test:electron
+
+      # Manual runs and version tags cut a Release; the asset makes the artifact redundant,
+      # so the artifact is only kept for runs that do not publish.
+      - name: Publish GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/') || inputs.release != false }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = if ($env:GITHUB_REF -like 'refs/tags/*') { $env:GITHUB_REF_NAME } else { "v$version" }
+          if ($env:GITHUB_REF -like 'refs/tags/*' -and $tag -ne "v$version") {
+            throw "tag $tag does not match package.json version v$version"
+          }
+          $exe = (Get-ChildItem release/win-x64/*.exe | Select-Object -First 1).FullName
+          $sums = (Resolve-Path release/win-x64/SHA256SUMS).Path
+          $notes = @'
+          非官方第三方客户端（学习版）的未签名构建，与华为无隶属或合作关系，未获官方授权，仅供学习研究。
+
+          - Windows 安装包（NSIS）：双击运行安装向导，可自选安装目录；不创建桌面快捷方式，可从开始菜单启动。
+          - 卸载通过“应用和功能”（或开始菜单里的卸载项）完成；卸载默认保留用户数据。
+          - 设置、队列与登录数据保存在用户数据目录，覆盖安装不会清空；跨电脑不会携带登录状态。
+          - 未签名，可能被 SmartScreen 或企业策略拦截；请核对下方 SHA256SUMS 附件。
+          - 登录所用 OAuth 应用标识不属于本项目（来源见 README「已知限制」），可能随时失效，分发与使用请自行评估服务条款与身份风险。
+          - 未在真实 Windows 桌面完成人工验收（登录、播放、托盘），请自行判断是否使用。
+          '@
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            # Replacing a build must not leave older installers or the retired portable asset behind.
+            gh release view $tag --repo $env:GITHUB_REPOSITORY --json assets -q '.assets[].name' |
+              Where-Object { $_ -like '*.exe' } |
+              ForEach-Object { gh release delete-asset $tag $_ --repo $env:GITHUB_REPOSITORY -y }
+            gh release upload $tag --repo $env:GITHUB_REPOSITORY $exe $sums --clobber
+          } else {
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA `
+              --title "华为音乐第三方客户端（学习版） $tag（未签名）" --notes $notes $exe $sums
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !(startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/') || inputs.release != false) }}
+        with:
+          name: huawei-music-study-windows-x64-unsigned
+          path: |
+            release/win-x64/*.exe
+            release/win-x64/SHA256SUMS
+          if-no-files-found: error
+          # Private-repo storage is limited (500 MB on Free); artifacts expire automatically.
+          retention-days: 3

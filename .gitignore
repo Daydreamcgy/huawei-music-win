@@ -1,0 +1,12 @@
+# Local research captures may contain temporary URLs or session material.
+research/
+.local/
+.env
+.env.*
+!.env.example
+node_modules/
+out/
+release/
+dist/
+__pycache__/
+*.pyc

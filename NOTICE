@@ -1,0 +1,25 @@
+华为音乐第三方客户端（学习版）
+Copyright (C) 2026 本项目作者
+
+This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU Affero General Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along with this program.
+If not, see <https://www.gnu.org/licenses/>.
+
+SPDX-License-Identifier: AGPL-3.0-only
+
+第三方归属与例外
+----------------
+- 应用与托盘图标由 Lucide 图标集的 music 字形生成（ISC 许可），版权与许可声明见
+  build/icon.LICENSE.txt。
+- 运行时依赖（Electron、React、undici 等）按其各自许可证分发，见各依赖包内声明。
+- 本项目不包含第三方客户端源码；接口形态来自公开网络资源与本人账号的兼容性实验，
+  相关记录见 docs/API_CONTRACT.md 与 docs/authorized-feature-validation.md。
+- 代码许可不代表获得华为服务、接口、商标或音乐内容的任何许可；详见 README 的
+  免责声明与使用边界。
