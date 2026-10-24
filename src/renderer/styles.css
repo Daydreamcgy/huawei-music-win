@@ -1,4 +1,4 @@
-﻿/* ─────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────
    华为音乐 · 桌面端（自研 UI）
    一套令牌，三层结构：侧栏 / 标题栏 + 内容 / 播放条。
    颜色克制到只有黑白灰 + 一个红心色，颜色只留给封面。
@@ -1113,12 +1113,26 @@ section {
   z-index: 40;
   display: flex;
   flex-direction: column;
-  background-color: #0a0a0c;
-  background-image: radial-gradient(120% 80% at 18% -12%, rgba(255, 255, 255, 0.055), transparent 62%),
+  background-color: var(--bg);
+  /* 顶部 96px 从纯底色渐入光晕：播放页顶边要和上面 52px 窗口条严丝合缝，
+     否则左上角那块会像贴了一块浅色补丁。 */
+  background-image: linear-gradient(180deg, var(--bg) 0, rgba(10, 10, 12, 0) 96px),
+    radial-gradient(120% 80% at 18% -12%, rgba(255, 255, 255, 0.055), transparent 62%),
     radial-gradient(90% 70% at 92% 112%, rgba(255, 255, 255, 0.022), transparent 66%);
   overflow: hidden;
   contain: paint;
   animation: player-in 0.2s ease;
+}
+
+/* 播放页打开时，顶部窗口条（左「音乐」块 + 右侧标题栏）压成和播放页同一个底色，
+   两侧原本的侧栏底色/渐变/分隔线在这一条上都不再出现。 */
+.app.is-player .sidebar {
+  background: var(--bg);
+  border-right-color: transparent;
+}
+
+.app.is-player .stage {
+  background: var(--bg);
 }
 
 @keyframes player-in {

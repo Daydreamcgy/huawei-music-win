@@ -217,7 +217,7 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app${playerOpen ? ' is-player' : ''}`}>
       <aside className="sidebar">
         <div className="brand">
           <img src={logo} alt="" className="brand-icon" />
