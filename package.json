@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "huawei-music-desktop",
   "version": "0.0.1",
   "private": true,
@@ -101,7 +101,7 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
-      "createDesktopShortcut": false
+      "createDesktopShortcut": true
     },
     "mac": {
       "target": [
