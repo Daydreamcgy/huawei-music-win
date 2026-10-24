@@ -115,18 +115,20 @@ export function MiniPlayer({ player, onExpand }: { player: Player; onExpand: () 
         </button>
       </div>
 
-      <span className="mini-time">
-        {formatTime(player.position)} / {formatTime(player.duration || track.durationSeconds)}
-      </span>
+      <div className="mini-right">
+        <span className="mini-time">
+          {formatTime(player.position)} / {formatTime(player.duration || track.durationSeconds)}
+        </span>
 
-      <div className="mini-volume">
-        <VolumeIcon value={player.volume} />
-        <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
+        <div className="mini-volume">
+          <VolumeIcon value={player.volume} />
+          <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
+        </div>
+
+        <button type="button" className="icon-button" onClick={onExpand} aria-label="展开播放页" title="展开播放页">
+          <Maximize2 size={16} />
+        </button>
       </div>
-
-      <button type="button" className="icon-button" onClick={onExpand} aria-label="展开播放页" title="展开播放页">
-        <Maximize2 size={16} />
-      </button>
     </div>
   );
 }
