@@ -1264,6 +1264,10 @@ section {
 .lyric-line.is-active {
   color: #fff;
   font-weight: 600;
+  /* 当前行真放大字号（不是靠 transform 缩放，字会发虚）；
+     上下 margin 抵掉多出来的行高，切行时列表不会整体跳。 */
+  font-size: 24px;
+  margin: -4px 0;
 }
 
 .lyric-line.is-plain {

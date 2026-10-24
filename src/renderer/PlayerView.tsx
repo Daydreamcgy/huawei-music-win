@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   Heart,
@@ -215,7 +215,7 @@ export function PlayerScreen({ player, onClose }: { player: Player; onClose: () 
                   ? undefined
                   : {
                       opacity: Math.max(0.14, 1 - distance * 0.16),
-                      transform: `scale(${distance === 0 ? 1.05 : Math.max(0.82, 1 - distance * 0.03)})`,
+                      transform: `scale(${distance === 0 ? 1 : Math.max(0.82, 1 - distance * 0.03)})`,
                     };
               return (
                 <p
