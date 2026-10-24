@@ -243,46 +243,51 @@ export function PlayerScreen({ player, onClose }: { player: Player; onClose: () 
           <span className="time">{formatTime(player.duration || track.durationSeconds)}</span>
         </div>
 
-        <div className="player-controls">
-          <button
-            type="button"
-            className={`icon-button ${player.shuffle ? 'is-on' : ''}`}
-            onClick={player.toggleShuffle}
-            aria-label="随机播放"
-            title="随机播放"
-          >
-            <Shuffle size={18} />
-          </button>
-          <button type="button" className="icon-button" onClick={() => player.previous()} aria-label="上一首" title="上一首">
-            <SkipBack size={22} fill="currentColor" />
-          </button>
-          <PlayLook toggle={player.toggle} playing={player.playing} />
-          <button type="button" className="icon-button" onClick={() => player.next()} aria-label="下一首" title="下一首">
-            <SkipForward size={22} fill="currentColor" />
-          </button>
-          <button
-            type="button"
-            className={`icon-button ${player.repeat !== 'off' ? 'is-on' : ''}`}
-            onClick={player.toggleRepeat}
-            aria-label="循环模式"
-            title={player.repeat === 'one' ? '单曲循环' : player.repeat === 'all' ? '列表循环' : '不循环'}
-          >
-            {player.repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
-          </button>
-          <button
-            type="button"
-            className={`icon-button favorite ${player.favorite ? 'is-on' : ''}`}
-            onClick={() => void player.toggleFavorite()}
-            aria-label={player.favorite ? '取消收藏' : '收藏'}
-            title={player.favorite ? '取消收藏' : '收藏'}
-          >
-            <Heart size={18} fill={player.favorite ? 'currentColor' : 'none'} />
-          </button>
-        </div>
+        <div className="player-bar">
+          <div className="player-extra">
+            <button
+              type="button"
+              className={`icon-button favorite ${player.favorite ? 'is-on' : ''}`}
+              onClick={() => void player.toggleFavorite()}
+              aria-label={player.favorite ? '取消收藏' : '收藏'}
+              title={player.favorite ? '取消收藏' : '收藏'}
+            >
+              <Heart size={18} fill={player.favorite ? 'currentColor' : 'none'} />
+            </button>
+          </div>
 
-        <div className="player-volume">
-          <VolumeIcon value={player.volume} />
-          <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
+          <div className="player-controls">
+            <button
+              type="button"
+              className={`icon-button ${player.shuffle ? 'is-on' : ''}`}
+              onClick={player.toggleShuffle}
+              aria-label="随机播放"
+              title="随机播放"
+            >
+              <Shuffle size={18} />
+            </button>
+            <button type="button" className="icon-button" onClick={() => player.previous()} aria-label="上一首" title="上一首">
+              <SkipBack size={22} fill="currentColor" />
+            </button>
+            <PlayLook toggle={player.toggle} playing={player.playing} />
+            <button type="button" className="icon-button" onClick={() => player.next()} aria-label="下一首" title="下一首">
+              <SkipForward size={22} fill="currentColor" />
+            </button>
+            <button
+              type="button"
+              className={`icon-button ${player.repeat !== 'off' ? 'is-on' : ''}`}
+              onClick={player.toggleRepeat}
+              aria-label="循环模式"
+              title={player.repeat === 'one' ? '单曲循环' : player.repeat === 'all' ? '列表循环' : '不循环'}
+            >
+              {player.repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+            </button>
+          </div>
+
+          <div className="player-volume">
+            <VolumeIcon value={player.volume} />
+            <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
+          </div>
         </div>
       </footer>
     </div>
