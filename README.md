@@ -1,4 +1,4 @@
-﻿# 华为音乐 · Windows 客户端（自研 UI）
+# 华为音乐 · Windows 客户端（自研 UI）
 
 按**鸿蒙电脑版华为音乐**的观感重做的桌面客户端：深色打底、封面当主角、导航只有一层、播放器永远退到幕后。
 
@@ -33,7 +33,8 @@
 | 应用图标 | ✅ 可用 | 官方图标源图生成 ico/png/托盘，窗口与任务栏统一 |
 | 队列持久化 | ✅ 可用 | 关掉再开恢复上次队列与位置 |
 | 登录页 | ✅ 可用 | 未登录时的引导页 + 登录中顶部取消条 |
-| 音乐厅 / 搜索 / 歌单 / 设置 / 托盘 / 打包 | ⬜ 未做 | 见 `docs/TECH-DESIGN.md` 的里程碑 |
+| 安装包 | ✅ 可用 | NSIS x64 内部安装包（未签名），本机安装 + 桌面快捷方式已实测启动 |
+| 音乐厅 / 搜索 / 歌单 / 设置 / 托盘 | ⬜ 未做 | 见 `docs/TECH-DESIGN.md` 的里程碑 |
 
 > 收藏数字是主进程分页拉全后按 ID 去重得到的，不是首屏数量。
 
@@ -65,6 +66,29 @@ node tools/shots.mjs fullscreen # 全屏一套，输出 fullscreen-*.png
 
 **注意**：本机 shell 默认导出 `ELECTRON_RUN_AS_NODE=1`，会让 Electron 变成纯 Node 直接报错。
 命令前先 `Remove-Item Env:ELECTRON_RUN_AS_NODE`。
+
+---
+
+## 打包与桌面快捷方式
+
+```powershell
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+npm run dist:win          # → release/win-x64/
+```
+
+产物：
+
+| 东西 | 路径 |
+|---|---|
+| 安装包 | `release\win-x64\huawei-music-desktop-0.0.1-win-x64-setup-internal.exe`（约 107 MB，未签名） |
+| 免安装目录 | `release\win-x64\win-unpacked\华为音乐.exe` |
+| 安装后有快捷方式 | `%LOCALAPPDATA%\Programs\huawei-music-desktop\华为音乐.exe`（NSIS 关掉了自动建桌面图标） |
+| 安装包版的数据目录 | `%APPDATA%\huawei-music-desktop`（按 `package.json` 的 `name`，不是 productName） |
+
+**会话迁移的坑**：安装包版和 `electron out/main/index.js` 开发态的 userData 不是同一个目录
+（`%APPDATA%\huawei-music-desktop` vs `%APPDATA%\Electron`），`session.enc` 用 `safeStorage` 加密，
+密钥存在各目录的 `Local State` 里——只拷 `session.enc` 解不开，要连同 `Local State` 一起拷
+（同一个 Windows 用户下可行）。不拷就在安装包里重新登录一次。
 
 ---
 
