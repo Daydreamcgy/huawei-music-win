@@ -6,9 +6,17 @@
 
 ![首页](docs/screenshots/home.png)
 
-| 我的收藏 | 播放页 |
+| 音乐厅 | 我的收藏 |
 |---|---|
-| ![收藏](docs/screenshots/favorites.png) | ![播放](docs/screenshots/player.png) |
+| ![音乐厅](docs/screenshots/hall.png) | ![收藏](docs/screenshots/favorites.png) |
+
+| 歌单详情 | 设置 |
+|---|---|
+| ![歌单](docs/screenshots/playlist.png) | ![设置](docs/screenshots/settings.png) |
+
+| 播放页 | 未登录 |
+|---|---|
+| ![播放](docs/screenshots/player.png) | ![登录](docs/screenshots/login.png) |
 
 窗口放大到 2048 宽（最大化）时，内容收口、播放页两栏居中，不会把卡片拉成一条：
 
@@ -25,16 +33,21 @@
 | 华为账号登录 | ✅ 可用 | 官方登录页嵌在主窗口 `WebContentsView`，扫完码自动回主界面 |
 | 会话恢复 | ✅ 可用 | 凭据走 safeStorage，加密存在 userData 里，重启免登录 |
 | 首页 | ✅ 可用 | 问候语 + 继续听大图 + 最近播放 + 收藏速览 |
-| 我的收藏 | ✅ 可用 | 全量分页拉取（154 首实测）、本地筛选、播放全部、取消收藏 |
+| 音乐厅 | ✅ 可用 | 播放记录聚合的常听歌手 + 我的歌单 + 收藏精选（换一批） |
+| 我的收藏 | ✅ 可用 | 全量分页拉取（154 首实测）、页内筛选、播放全部、取消收藏 |
+| 歌单 | ✅ 可用 | 侧栏列表 + 详情页（分页加载、播放全部），9 个歌单实测 |
+| 搜索 | ✅ 可用 | 标题栏搜索走华为在线曲库，防抖 350ms、分页加载更多 |
+| 设置 | ✅ 可用 | 账号与退出登录、音质、关闭行为、历史上报、第三方歌词、歌词缓存、关于 |
+| 托盘 | ✅ 可用 | 托盘菜单（显示/播放控制/退出）+ 关闭到托盘，设置里可切换 |
 | 播放 | ✅ 可用 | 单曲解析、播放/暂停、上下首、拖进度、音量、循环/随机 |
 | 播放页 | ✅ 可用 | 封面 + 歌词双栏、当前行高亮、点歌词跳转、音质徽标 |
 | 迷你播放条 | ✅ 可用 | 底部常驻，进度/控制/音量/展开 |
 | 窗口外壳 | ✅ 可用 | 无边框 + 自绘标题栏（拖拽/搜索/最小化/最大化/关闭），无系统白条 |
 | 应用图标 | ✅ 可用 | 官方图标源图生成 ico/png/托盘，窗口与任务栏统一 |
 | 队列持久化 | ✅ 可用 | 关掉再开恢复上次队列与位置 |
-| 登录页 | ✅ 可用 | 未登录时的引导页 + 登录中顶部取消条 |
+| 登录页 | ✅ 可用 | 未登录时整页引导 + 登录中顶部取消条，侧栏收成一条 |
 | 安装包 | ✅ 可用 | NSIS x64 内部安装包（未签名），本机安装 + 桌面快捷方式已实测启动 |
-| 音乐厅 / 搜索 / 歌单 / 设置 / 托盘 | ⬜ 未做 | 见 `docs/TECH-DESIGN.md` 的里程碑 |
+| 每日推荐 / 榜单 | ⬜ 未做 | 华为 `recommend/querydaily` 变体仍 400，不做假推荐替代 |
 
 > 收藏数字是主进程分页拉全后按 ID 去重得到的，不是首屏数量。
 
@@ -105,11 +118,12 @@ src/
 │   ├── music-client.ts  # 华为业务接口封装
 │   └── storage.ts       # safeStorage 会话、设置、队列
 ├── renderer/        # 渲染层（本次重写的部分）
-│   ├── App.tsx          # 外壳：侧栏、路由、登录流程、toast
-│   ├── screens.tsx      # 首页 / 收藏 / 登录三屏
+│   ├── App.tsx          # 外壳：侧栏、路由、搜索、登录流程、toast
+│   ├── screens.tsx      # 首页 / 收藏 / 登录
+│   ├── pages.tsx        # 音乐厅 / 歌单 / 搜索 / 设置
 │   ├── PlayerView.tsx   # 迷你播放条 + 全屏播放页
 │   ├── ui.tsx           # 封面、行、按钮等基础组件
-│   ├── lib/api.ts       # IPC 薄封装（拆 Result、收藏分页）
+│   ├── lib/api.ts       # IPC 薄封装（拆 Result、收藏分页、歌单、搜索）
 │   ├── lib/player.ts    # 播放内核 hook（Audio 元素 + 队列）
 │   ├── assets/          # 应用图标（脚本生成）
 │   └── styles.css       # 设计令牌与全部样式
@@ -123,9 +137,9 @@ src/
 
 | 鸿蒙电脑版 | 这里的实现 |
 |---|---|
-| 左侧四项导航（首页/音乐厅/café听/我的） | 首页 / 我的收藏，登录状态收在底部账号块 |
+| 左侧四项导航（首页/音乐厅/café听/我的） | 首页 / 音乐厅 / 我的收藏 + 侧栏歌单列表，账号收进设置页 |
 | 顶部是系统标题栏 | **无边框自绘标题栏**（52px，上留白更松）：拖拽区 + 搜索 + 最小化/最大化/关闭，没有系统白条 |
-| 音乐厅：大 banner + 筛选胶囊 + 横滑卡片 | 首页：继续听横幅（用当前封面做底图）+ 最近播放横滑 + 收藏速览 |
+| 音乐厅：大 banner + 筛选胶囊 + 横滑卡片 | 首页：继续听横幅（用当前封面做底图）+ 最近播放横滑 + 收藏速览；音乐厅：常听歌手横排 + 歌单宫格 + 收藏精选 |
 | 播放是浮动小窗，左封面右歌词 | 全屏播放页，左封面右歌词居中排布，`Esc` 收起 |
 | 播放条常驻底部、克制 | 76px 常驻播放条，2px 进度线，右侧音量，不抢内容 |
 | 深色 + 封面发光 + 白色胶囊按钮 | 同一套：`#0a0a0c` 底、`#f4f4f6` 主按钮；封面只在卡片里发光，播放页用中性渐变，不做整屏模糊 |
@@ -148,11 +162,15 @@ src/
 |---|---|
 | 登录状态 / 登录 / 取消 / 登出 | `auth.status` `auth.login` `auth.cancelLogin` `auth.logout` `auth.onProgress` |
 | 收藏列表 | `music.favorites({start,limit})` + `music.favoritesSummary` |
+| 歌单 | `music.playlists` + `music.playlistDetail({id,kind,start,limit})` |
+| 搜索 | `music.search({query,start,limit})` |
 | 最近播放 | `music.history` |
 | 播放地址 | `music.resolvePlayback({trackId,quality})` |
 | 歌词 | `music.lyrics({trackId,title,artist,...})` |
 | 收藏/取消 | `music.favoriteState` / `music.setFavorite` |
 | 设置与队列 | `settings.get/update`、`queue.load/save` |
+| 关闭行为（托盘） | `window.setCloseBehavior('quit' \| 'tray')` |
+| 歌词缓存 | `lyrics.cacheInfo` / `lyrics.clearCache({local})` |
 
 接口细节（Digest 头、`resultCode === '000000'`、OAuth 链路）见 `docs/API_CONTRACT.md`，那是上一阶段真实账号验过的合同。
 

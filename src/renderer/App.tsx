@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Copy, Disc3, Heart, Home, LogOut, Minus, Search, Square, X } from 'lucide-react';
-import type { AppSettings, AuthStatus, Track } from '../shared/types';
+import { Copy, Heart, Home, ListMusic, Minus, Search, Square, X } from 'lucide-react';
+import type { AppSettings, AuthStatus, LyricsCacheInfo, Playlist, Track } from '../shared/types';
 import { api } from './lib/api';
 import { usePlayer } from './lib/player';
 import { FavoritesScreen, HomeScreen, LoginScreen } from './screens';
+import { HallScreen, PlaylistScreen, SearchScreen, SettingsScreen, SidebarFooter, SidebarPlaylists } from './pages';
 import { MiniPlayer, PlayerScreen } from './PlayerView';
 import logo from './assets/app-icon.png';
 
-type Route = 'home' | 'favorites';
+type Route =
+  | { name: 'home' }
+  | { name: 'hall' }
+  | { name: 'favorites' }
+  | { name: 'settings' }
+  | { name: 'playlist'; playlist: Playlist }
+  | { name: 'search'; query: string };
 
 function WindowControls({ maximized }: { maximized: boolean }) {
   return (
@@ -34,8 +41,9 @@ function WindowControls({ maximized }: { maximized: boolean }) {
 export function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [booting, setBooting] = useState(true);
-  const [route, setRoute] = useState<Route>('home');
-  const [search, setSearch] = useState('');
+  const [route, setRoute] = useState<Route>({ name: 'home' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [favFilter, setFavFilter] = useState('');
   const [maximized, setMaximized] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -45,14 +53,19 @@ export function App() {
   const [favorites, setFavorites] = useState<Track[]>([]);
   const [history, setHistory] = useState<Track[]>([]);
   const [total, setTotal] = useState(0);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [playlistsLoading, setPlaylistsLoading] = useState(false);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
 
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [lyricsCache, setLyricsCache] = useState<LyricsCacheInfo | null>(null);
   const [quality, setQuality] = useState<AppSettings['quality']>('lossless');
   const [volume, setVolume] = useState(0.8);
 
   const toastTimer = useRef<number | undefined>(undefined);
   const saveTimer = useRef<number | undefined>(undefined);
+  const mainRef = useRef<HTMLElement | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -70,16 +83,25 @@ export function App() {
     },
   });
 
+  const play = useCallback(
+    (tracks: Track[], index: number) => {
+      player.playFrom(tracks, index);
+      setPlayerOpen(true);
+    },
+    [player],
+  );
+
   // 启动：读登录态、设置；已登录就直接拉资料库。
   useEffect(() => {
     void (async () => {
       const status = await api.authStatus();
       if (status?.ok) setAuth(status.data);
 
-      const settings = await api.settings().catch(() => null);
-      if (settings) {
-        setQuality(settings.quality);
-        setVolume(settings.volume);
+      const loaded = await api.settings().catch(() => null);
+      if (loaded) {
+        setSettings(loaded);
+        setQuality(loaded.quality);
+        setVolume(loaded.volume);
       }
       setBooting(false);
     })();
@@ -118,6 +140,39 @@ export function App() {
       setTotal(0);
     }
   }, [auth?.authenticated, loadLibrary]);
+
+  // 歌单列表：登录后拉一次，失败不阻塞主界面。
+  useEffect(() => {
+    if (!auth?.authenticated) {
+      setPlaylists([]);
+      return;
+    }
+    setPlaylistsLoading(true);
+    api
+      .playlists()
+      .then(setPlaylists)
+      .catch(() => undefined)
+      .finally(() => setPlaylistsLoading(false));
+  }, [auth?.authenticated]);
+
+  // 搜索：停顿 350ms 再发请求，边打字边跳页面会很吵。
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    const timer = window.setTimeout(() => setRoute({ name: 'search', query }), 350);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 进设置页时才统计歌词缓存。
+  useEffect(() => {
+    if (route.name !== 'settings') return;
+    void api.lyricsCacheInfo().then(setLyricsCache).catch(() => undefined);
+  }, [route.name]);
+
+  // 换页回到顶部：从歌单滚到一半切到收藏，不该停在半截。
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [route]);
 
   // 队列持久化：切歌/换队列后延迟落盘，避免频繁写。
   useEffect(() => {
@@ -174,6 +229,7 @@ export function App() {
     if (result?.ok) {
       setAuth(null);
       setPlayerOpen(false);
+      setRoute({ name: 'home' });
       showToast('已退出登录。');
     } else {
       showToast('退出登录没有成功。');
@@ -196,13 +252,54 @@ export function App() {
     [showToast],
   );
 
+  const handleUpdateSettings = useCallback(
+    async (patch: Partial<AppSettings>) => {
+      try {
+        const next = await api.updateSettings(patch);
+        setSettings(next);
+        if (patch.quality) setQuality(next.quality);
+      } catch {
+        showToast('设置没有保存成功。');
+      }
+    },
+    [showToast],
+  );
+
+  const handleCloseBehavior = useCallback(
+    async (value: AppSettings['closeBehavior']) => {
+      try {
+        setSettings(await api.window.setCloseBehavior(value));
+        showToast(value === 'tray' ? '关闭窗口后会收进托盘。' : '关闭窗口就直接退出。');
+      } catch {
+        showToast('关闭行为没有保存成功。');
+      }
+    },
+    [showToast],
+  );
+
+  const handleClearLyrics = useCallback(
+    async (local: boolean) => {
+      try {
+        setLyricsCache(await api.clearLyricsCache(local));
+        showToast(local ? '本地导入的歌词已清空。' : '歌词缓存已清空。');
+      } catch {
+        showToast('清理失败，稍后再试。');
+      }
+    },
+    [showToast],
+  );
+
   const openFavorites = useCallback(() => {
     if (!auth?.authenticated) {
       showToast('先登录才能读取收藏。');
       return;
     }
-    setRoute('favorites');
+    setRoute({ name: 'favorites' });
   }, [auth?.authenticated, showToast]);
+
+  const openPlaylist = useCallback((playlist: Playlist) => {
+    setRoute({ name: 'playlist', playlist });
+  }, []);
 
   const authenticated = Boolean(auth?.authenticated);
   const displayName = auth?.displayName;
@@ -225,43 +322,49 @@ export function App() {
         </div>
 
         {authenticated ? (
-          <nav className="nav">
-            <button type="button" className={`nav-item ${route === 'home' ? 'is-active' : ''}`} onClick={() => setRoute('home')}>
-              <Home size={17} />
-              首页
-            </button>
-            <button type="button" className={`nav-item ${route === 'favorites' ? 'is-active' : ''}`} onClick={openFavorites}>
-              <Heart size={17} />
-              我的收藏
-              {total > 0 ? <span className="nav-count">{total}</span> : null}
-            </button>
-          </nav>
-        ) : null}
-
-        <div className="sidebar-bottom">
-          {authenticated ? (
-            <div className="account">
-              <span className="avatar">{displayName?.[0] ?? '华'}</span>
-              <div className="account-text">
-                <span className="account-name">{displayName ?? '已登录'}</span>
-                <span className="account-sub">华为账号</span>
-              </div>
+          <>
+            <nav className="nav">
               <button
                 type="button"
-                className="icon-button"
-                onClick={() => void handleLogout()}
-                title="退出登录"
-                aria-label="退出登录"
+                className={`nav-item ${route.name === 'home' ? 'is-active' : ''}`}
+                onClick={() => setRoute({ name: 'home' })}
               >
-                <LogOut size={15} />
+                <Home size={17} />
+                首页
               </button>
-            </div>
-          ) : (
-            <button type="button" className="ghost-button" onClick={() => void handleLogin()} disabled={loginPending}>
-              <Disc3 size={15} /> 登录华为账号
-            </button>
-          )}
-        </div>
+              <button
+                type="button"
+                className={`nav-item ${route.name === 'hall' ? 'is-active' : ''}`}
+                onClick={() => setRoute({ name: 'hall' })}
+              >
+                <ListMusic size={17} />
+                音乐厅
+              </button>
+              <button
+                type="button"
+                className={`nav-item ${route.name === 'favorites' ? 'is-active' : ''}`}
+                onClick={openFavorites}
+              >
+                <Heart size={17} />
+                我的收藏
+                {total > 0 ? <span className="nav-count">{total}</span> : null}
+              </button>
+            </nav>
+
+            <SidebarPlaylists
+              playlists={playlists}
+              loading={playlistsLoading}
+              activeId={route.name === 'playlist' ? route.playlist.id : undefined}
+              onOpen={openPlaylist}
+            />
+          </>
+        ) : null}
+
+        {authenticated ? (
+          <div className="sidebar-bottom">
+            <SidebarFooter active={route.name === 'settings'} onOpenSettings={() => setRoute({ name: 'settings' })} />
+          </div>
+        ) : null}
       </aside>
 
       <div className="stage">
@@ -270,17 +373,22 @@ export function App() {
             <label className="titlebar-search">
               <Search size={14} />
               <input
-                value={search}
-                onChange={event => {
-                  setSearch(event.target.value);
-                  if (event.target.value.trim()) setRoute('favorites');
-                }}
-                placeholder="搜索我的收藏"
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder="搜索歌曲"
                 spellCheck={false}
-                aria-label="搜索我的收藏"
+                aria-label="搜索歌曲"
               />
-              {search ? (
-                <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="清空搜索">
+              {searchQuery ? (
+                <button
+                  type="button"
+                  className="search-clear"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setRoute({ name: 'home' });
+                  }}
+                  aria-label="清空搜索"
+                >
                   <X size={13} />
                 </button>
               ) : null}
@@ -289,10 +397,10 @@ export function App() {
           <WindowControls maximized={maximized} />
         </header>
 
-        <main className="main">
+        <main className="main" ref={mainRef}>
           {!authenticated ? (
             <LoginScreen pending={loginPending} message={loginMessage} onLogin={() => void handleLogin()} />
-          ) : route === 'home' ? (
+          ) : route.name === 'home' ? (
             <HomeScreen
               history={history}
               favorites={favorites}
@@ -301,26 +409,61 @@ export function App() {
               displayName={displayName}
               currentId={player.current?.id}
               playing={player.playing}
-              onPlay={(tracks, index) => {
-                player.playFrom(tracks, index);
-                setPlayerOpen(true);
-              }}
+              onPlay={play}
               onOpenFavorites={openFavorites}
             />
-          ) : (
+          ) : route.name === 'hall' ? (
+            <HallScreen
+              favorites={favorites}
+              history={history}
+              playlists={playlists}
+              loading={playlistsLoading}
+              currentId={player.current?.id}
+              playing={player.playing}
+              onPlay={play}
+              onOpenPlaylist={openPlaylist}
+              onSearchArtist={name => setSearchQuery(name)}
+            />
+          ) : route.name === 'favorites' ? (
             <FavoritesScreen
               tracks={favorites}
               total={total}
               loading={libraryLoading}
               currentId={player.current?.id}
               playing={player.playing}
-              filter={search}
-              onFilterChange={setSearch}
-              onPlay={(tracks, index) => {
-                player.playFrom(tracks, index);
-                setPlayerOpen(true);
-              }}
+              filter={favFilter}
+              onFilterChange={setFavFilter}
+              onPlay={play}
               onToggleFavorite={track => void handleToggleFavorite(track)}
+            />
+          ) : route.name === 'playlist' ? (
+            <PlaylistScreen
+              key={route.playlist.id}
+              playlist={route.playlist}
+              currentId={player.current?.id}
+              playing={player.playing}
+              onPlay={play}
+            />
+          ) : route.name === 'search' ? (
+            <SearchScreen
+              key={route.query}
+              query={route.query}
+              currentId={player.current?.id}
+              playing={player.playing}
+              onPlay={play}
+            />
+          ) : (
+            <SettingsScreen
+              auth={auth}
+              settings={settings}
+              cache={lyricsCache}
+              displayName={displayName}
+              onUpdate={patch => void handleUpdateSettings(patch)}
+              onCloseBehavior={value => void handleCloseBehavior(value)}
+              onLogout={() => void handleLogout()}
+              onLogin={() => void handleLogin()}
+              onClearCache={local => void handleClearLyrics(local)}
+              onQuit={() => void api.app.quit()}
             />
           )}
           {libraryError && authenticated ? <div className="inline-error">{libraryError}</div> : null}

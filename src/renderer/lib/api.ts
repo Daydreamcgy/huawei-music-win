@@ -1,9 +1,13 @@
 import type {
   AppSettings,
   AuthStatus,
+  LyricsCacheInfo,
   LyricsDoc,
   Playback,
+  Playlist,
+  PlaylistDetail,
   Result,
+  SearchPage,
   Track,
 } from '../../shared/types';
 
@@ -80,6 +84,21 @@ export const api = {
 
   settings: () => unwrap(window.desktop.settings.get()),
   updateSettings: (patch: Partial<AppSettings>) => unwrap(window.desktop.settings.update(patch)),
+
+  playlists: async (refresh = false): Promise<Playlist[]> => {
+    const data = await unwrap(window.desktop.music.playlists({ refresh }));
+    return data.playlists;
+  },
+
+  playlistDetail: (input: { id: string; kind: Playlist['kind']; start?: number; limit?: number }): Promise<PlaylistDetail> =>
+    unwrap(window.desktop.music.playlistDetail(input)),
+
+  search: (query: string, start = 0, limit = 30): Promise<SearchPage> =>
+    unwrap(window.desktop.music.search({ query, start, limit })),
+
+  lyricsCacheInfo: (): Promise<LyricsCacheInfo> => unwrap(window.desktop.lyrics.cacheInfo()),
+  clearLyricsCache: (local = false): Promise<LyricsCacheInfo> => unwrap(window.desktop.lyrics.clearCache({ local })),
+
   loadQueue: () => window.desktop.queue.load().catch(() => null),
   saveQueue: (tracks: Track[], index: number, positionSeconds: number) =>
     window.desktop.queue.save({ tracks, index, positionSeconds }).catch(() => null),
@@ -90,7 +109,11 @@ export const api = {
     close: () => window.desktop.window.close().catch(() => undefined),
     isMaximized: () => window.desktop.window.isMaximized().catch(() => false),
     onMaximized: (listener: (maximized: boolean) => void) => window.desktop.window.onMaximized(listener),
+    setCloseBehavior: (value: AppSettings['closeBehavior']): Promise<AppSettings> =>
+      unwrap(window.desktop.window.setCloseBehavior(value)),
   },
+
+  app: { quit: () => window.desktop.app.quit() },
 };
 
-export type { AuthStatus, Track };
+export type { AuthStatus, LyricsCacheInfo, Playlist, PlaylistDetail, SearchPage, Track };
