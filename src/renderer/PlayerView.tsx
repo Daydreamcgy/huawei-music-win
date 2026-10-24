@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   Heart,
+  ListMusic,
   Maximize2,
   Pause,
   Play,
@@ -19,6 +20,8 @@ import type { usePlayer } from './lib/player';
 import { artistsOf, Cover, formatTime } from './ui';
 
 type Player = ReturnType<typeof usePlayer>;
+
+export type { Player };
 
 function VolumeIcon({ value }: { value: number }) {
   if (value <= 0.001) return <VolumeX size={16} />;
@@ -67,7 +70,17 @@ function Scrubber({
   );
 }
 
-export function MiniPlayer({ player, onExpand }: { player: Player; onExpand: () => void }) {
+export function MiniPlayer({
+  player,
+  onExpand,
+  onToggleQueue,
+  queueOpen,
+}: {
+  player: Player;
+  onExpand: () => void;
+  onToggleQueue: () => void;
+  queueOpen: boolean;
+}) {
   const track = player.current;
   const percent = player.duration > 0 ? (player.position / player.duration) * 100 : 0;
 
@@ -84,9 +97,25 @@ export function MiniPlayer({ player, onExpand }: { player: Player; onExpand: () 
     );
   }
 
+  const total = player.duration || track.durationSeconds || 0;
+
   return (
     <div className="mini-player">
-      <div className="mini-progress">
+      <div
+        className="mini-progress"
+        role="slider"
+        aria-label="播放进度"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(total)}
+        aria-valuenow={Math.round(player.position)}
+        title="点击跳转"
+        onClick={event => {
+          if (total <= 0) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+          player.seek(ratio * total);
+        }}
+      >
         <span style={{ width: `${percent}%` }} />
       </div>
       <button type="button" className="mini-track" onClick={onExpand} title="打开播放页">
@@ -125,6 +154,16 @@ export function MiniPlayer({ player, onExpand }: { player: Player; onExpand: () 
           <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
         </div>
 
+        <button
+          type="button"
+          className={`icon-button ${queueOpen ? 'is-on' : ''}`}
+          onClick={onToggleQueue}
+          aria-label="播放队列"
+          title="播放队列"
+        >
+          <ListMusic size={16} />
+        </button>
+
         <button type="button" className="icon-button" onClick={onExpand} aria-label="展开播放页" title="展开播放页">
           <Maximize2 size={16} />
         </button>
@@ -133,7 +172,17 @@ export function MiniPlayer({ player, onExpand }: { player: Player; onExpand: () 
   );
 }
 
-export function PlayerScreen({ player, onClose }: { player: Player; onClose: () => void }) {
+export function PlayerScreen({
+  player,
+  onClose,
+  onToggleQueue,
+  queueOpen,
+}: {
+  player: Player;
+  onClose: () => void;
+  onToggleQueue: () => void;
+  queueOpen: boolean;
+}) {
   const track = player.current;
   const linesRef = useRef<HTMLDivElement | null>(null);
   const activeLineRef = useRef<HTMLParagraphElement | null>(null);
@@ -183,6 +232,16 @@ export function PlayerScreen({ player, onClose }: { player: Player; onClose: () 
       <header className="player-head">
         <button type="button" className="icon-button" onClick={onClose} aria-label="收起播放页" title="收起播放页">
           <ChevronDown size={22} />
+        </button>
+        {/* 队列按钮放左边：右侧浮层打开时不会把自己盖住。 */}
+        <button
+          type="button"
+          className={`icon-button ${queueOpen ? 'is-on' : ''}`}
+          onClick={onToggleQueue}
+          aria-label="播放队列"
+          title="播放队列"
+        >
+          <ListMusic size={17} />
         </button>
         <div className="player-head-text">
           <span className="player-eyebrow">正在播放</span>

@@ -153,6 +153,7 @@ export function FavoritesScreen({
   onFilterChange,
   onPlay,
   onToggleFavorite,
+  onTrackMenu,
 }: {
   tracks: Track[];
   total: number;
@@ -163,6 +164,7 @@ export function FavoritesScreen({
   onFilterChange: (value: string) => void;
   onPlay: PlayHandler;
   onToggleFavorite: (track: Track) => void;
+  onTrackMenu?: (track: Track, event: React.MouseEvent) => void;
 }) {
   const filtered = useMemo(() => {
     const key = filter.trim().toLowerCase();
@@ -188,7 +190,7 @@ export function FavoritesScreen({
         </div>
         <button type="button" className="primary-button" disabled={filtered.length === 0} onClick={() => onPlay(filtered, 0)}>
           <Play size={15} fill="currentColor" />
-          <span>播放全部</span>
+          <span>{filter ? '播放筛选结果' : '播放全部'}</span>
         </button>
       </header>
 
@@ -233,6 +235,7 @@ export function FavoritesScreen({
               playing={playing && currentId === track.id}
               onPlay={() => onPlay(filtered, i)}
               onToggleFavorite={() => onToggleFavorite(track)}
+              onMenu={event => onTrackMenu?.(track, event)}
               favorite
             />
           ))}

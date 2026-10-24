@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Heart, Loader2, Pause, Play } from 'lucide-react';
 import type { Track } from '../shared/types';
 
@@ -91,6 +91,7 @@ export function TrackRow({
   playing,
   onPlay,
   onToggleFavorite,
+  onMenu,
   favorite,
   showAlbum = true,
 }: {
@@ -100,6 +101,8 @@ export function TrackRow({
   playing: boolean;
   onPlay: () => void;
   onToggleFavorite?: () => void;
+  /** 右键菜单（下一首播放 / 添加到播放队列）。 */
+  onMenu?: (event: React.MouseEvent) => void;
   favorite?: boolean;
   showAlbum?: boolean;
 }) {
@@ -107,6 +110,14 @@ export function TrackRow({
     <div
       className={`track-row ${active ? 'is-active' : ''}`}
       onDoubleClick={onPlay}
+      onContextMenu={
+        onMenu
+          ? event => {
+              event.preventDefault();
+              onMenu(event);
+            }
+          : undefined
+      }
       role="button"
       tabIndex={0}
       onKeyDown={event => {

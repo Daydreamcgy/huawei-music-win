@@ -6,6 +6,7 @@ import { usePlayer } from './lib/player';
 import { FavoritesScreen, HomeScreen, LoginScreen } from './screens';
 import { HallScreen, PlaylistScreen, PlaylistsScreen, SearchScreen, SettingsScreen, SidebarFooter } from './pages';
 import { MiniPlayer, PlayerScreen } from './PlayerView';
+import { QueuePanel, TrackMenu, type MenuTarget } from './QueuePanel';
 import logo from './assets/app-icon.png';
 
 type Route =
@@ -67,6 +68,8 @@ export function App() {
   const toastTimer = useRef<number | undefined>(undefined);
   const saveTimer = useRef<number | undefined>(undefined);
   const mainRef = useRef<HTMLElement | null>(null);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [menu, setMenu] = useState<MenuTarget | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -82,7 +85,14 @@ export function App() {
       setVolume(next);
       void api.updateSettings({ volume: next }).catch(() => undefined);
     },
+    // 循环/随机状态以前只活在内存里，重启就回到默认值；现在跟着设置一起落盘。
+    onPreferencesChange: next => {
+      void api.updateSettings({ repeatMode: next.repeat, shuffle: next.shuffle }).catch(() => undefined);
+    },
   });
+
+  const playerRef = useRef(player);
+  playerRef.current = player;
 
   const play = useCallback(
     (tracks: Track[], index: number) => {
@@ -91,6 +101,43 @@ export function App() {
     },
     [player],
   );
+
+  /** 右键菜单：立即播放（已在队列里就直接跳过去）。 */
+  const handleMenuPlay = useCallback((track: Track) => {
+    const latest = playerRef.current;
+    if (latest.queue.length === 0) {
+      latest.playFrom([track], 0);
+    } else {
+      const at = latest.queue.findIndex(item => item.id === track.id);
+      if (at >= 0) {
+        latest.jumpTo(at);
+      } else {
+        latest.enqueueNext([track]);
+        latest.jumpTo(latest.index + 1);
+      }
+    }
+    setPlayerOpen(true);
+  }, []);
+
+  const handlePlayNext = useCallback(
+    (track: Track) => {
+      playerRef.current.enqueueNext([track]);
+      showToast(`「${track.title}」下一首播放`);
+    },
+    [showToast],
+  );
+
+  const handleAddToQueue = useCallback(
+    (track: Track) => {
+      playerRef.current.enqueueLast([track]);
+      showToast(`「${track.title}」已添加到播放队列`);
+    },
+    [showToast],
+  );
+
+  const handleTrackMenu = useCallback((track: Track, event: React.MouseEvent) => {
+    setMenu({ track, x: event.clientX, y: event.clientY });
+  }, []);
 
   // 启动：读登录态、设置；已登录就直接拉资料库。
   useEffect(() => {
@@ -185,6 +232,35 @@ export function App() {
     return () => window.clearTimeout(saveTimer.current);
   }, [player.queue, player.index]);
 
+  // 进阶：正在播时每 10 秒把进度也存一次，重开客户端能接着听。
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const latest = playerRef.current;
+      if (latest.queue.length === 0 || latest.index < 0) return;
+      void api.saveQueue(latest.queue, latest.index, latest.positionCommit.current);
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // 启动时恢复上次队列（定位到那一首、那个进度，但不自动出声）。
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (booting || restoredRef.current) return;
+    if (!auth?.authenticated) return;
+    restoredRef.current = true;
+    void api.loadQueue().then(result => {
+      if (!result || !result.ok || !result.data || result.data.tracks.length === 0) return;
+      if (playerRef.current.queue.length > 0) return;
+      playerRef.current.restore(result.data.tracks, result.data.index, result.data.positionSeconds);
+    });
+  }, [booting, auth?.authenticated]);
+
+  // 循环/随机以落盘的设置为准（设置页改不了，但播放页按钮会写回去）。
+  useEffect(() => {
+    if (!settings) return;
+    playerRef.current.setPreferences({ repeat: settings.repeatMode, shuffle: settings.shuffle });
+  }, [settings?.repeatMode, settings?.shuffle]);
+
   // 空格：播放/暂停（输入框里不抢键）；Esc 收播放页。
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -194,7 +270,11 @@ export function App() {
         event.preventDefault();
         player.toggle();
       }
-      if (event.key === 'Escape') setPlayerOpen(false);
+      if (event.key === 'Escape') {
+        setPlayerOpen(false);
+        setQueueOpen(false);
+        setMenu(null);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -438,6 +518,7 @@ export function App() {
               onFilterChange={setFavFilter}
               onPlay={play}
               onToggleFavorite={track => void handleToggleFavorite(track)}
+              onTrackMenu={handleTrackMenu}
             />
           ) : route.name === 'playlists' ? (
             <PlaylistsScreen playlists={playlists} loading={playlistsLoading} onOpen={openPlaylist} />
@@ -449,6 +530,7 @@ export function App() {
               playing={player.playing}
               onPlay={play}
               onBack={() => setRoute({ name: 'playlists' })}
+              onTrackMenu={handleTrackMenu}
             />
           ) : route.name === 'search' ? (
             <SearchScreen
@@ -457,6 +539,7 @@ export function App() {
               currentId={player.current?.id}
               playing={player.playing}
               onPlay={play}
+              onTrackMenu={handleTrackMenu}
             />
           ) : (
             <SettingsScreen
@@ -476,9 +559,33 @@ export function App() {
         </main>
       </div>
 
-      <MiniPlayer player={player} onExpand={() => setPlayerOpen(true)} />
+      <MiniPlayer
+        player={player}
+        onExpand={() => setPlayerOpen(true)}
+        onToggleQueue={() => setQueueOpen(value => !value)}
+        queueOpen={queueOpen}
+      />
 
-      {playerOpen && <PlayerScreen player={player} onClose={() => setPlayerOpen(false)} />}
+      {queueOpen ? <QueuePanel player={player} onClose={() => setQueueOpen(false)} /> : null}
+
+      {menu ? (
+        <TrackMenu
+          target={menu}
+          onClose={() => setMenu(null)}
+          onPlayNow={() => handleMenuPlay(menu.track)}
+          onPlayNext={() => handlePlayNext(menu.track)}
+          onAddToQueue={() => handleAddToQueue(menu.track)}
+        />
+      ) : null}
+
+      {playerOpen && (
+        <PlayerScreen
+          player={player}
+          onClose={() => setPlayerOpen(false)}
+          onToggleQueue={() => setQueueOpen(value => !value)}
+          queueOpen={queueOpen}
+        />
+      )}
 
       {loginPending ? (
         <div className="login-strip">
