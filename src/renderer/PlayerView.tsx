@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   Heart,
@@ -178,9 +178,6 @@ export function PlayerScreen({ player, onClose }: { player: Player; onClose: () 
 
   return (
     <div className="player-screen">
-      <div className="player-backdrop" style={{ backgroundImage: `url(${track.coverUrl ?? ''})` }} aria-hidden="true" />
-      <div className="player-veil" aria-hidden="true" />
-
       <header className="player-head">
         <button type="button" className="icon-button" onClick={onClose} aria-label="收起播放页" title="收起播放页">
           <ChevronDown size={22} />

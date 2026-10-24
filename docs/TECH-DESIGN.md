@@ -142,6 +142,7 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 - `.screen` 内容 `max-width: 1680px` 居中；再宽也不会把卡片拉成一条。
 - 卡片列用 `auto-fill` + `minmax(155px, 1fr)`，列数随宽度自然增减；横滑区用 `grid-auto-columns: clamp(158px, 11vw, 190px)`，卡宽有上下限。
 - 播放页三行（head / body / foot）统一 `max-width: 1080px` 居中；body 两栏 `340px + 1fr`，歌词块整体居中排版，宽屏下左右留白对称。
+- 播放页背景只用中性径向渐变，**不放整屏 `filter: blur()` 图层**：大尺寸滤镜图层在窗口缩放/切歌时可能留下没重绘的浅色带（底部空白），且每帧都贵。
 - 列表行 `56px`，列宽用 `minmax()` 收放；收藏页专辑列上限 320px，避免宽屏把标题和专辑拉得太远。
 
 ## 5. 实现决策与坑
