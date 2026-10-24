@@ -196,17 +196,6 @@ export function PlayerScreen({ player, onClose }: { player: Player; onClose: () 
             <h1 className="player-title">{track.title}</h1>
             <p className="player-artist">{artistsOf(track)}</p>
           </div>
-          <div className="player-actions">
-            <button
-              type="button"
-              className={`icon-button big ${player.favorite ? 'is-on' : ''}`}
-              onClick={() => void player.toggleFavorite()}
-              aria-label={player.favorite ? '取消收藏' : '收藏'}
-              title={player.favorite ? '取消收藏' : '收藏'}
-            >
-              <Heart size={20} fill={player.favorite ? 'currentColor' : 'none'} />
-            </button>
-          </div>
         </div>
 
         <div className="player-lyrics" ref={linesRef}>
@@ -216,17 +205,29 @@ export function PlayerScreen({ player, onClose }: { player: Player; onClose: () 
               <span>{player.lyrics ? '这首歌没有提供歌词' : '歌词还在路上…'}</span>
             </div>
           ) : (
-            lines.map((line, i) => (
-              <p
-                key={`${line.timeMs}-${i}`}
-                ref={i === activeIndex ? activeLineRef : null}
-                className={`lyric-line ${i === activeIndex ? 'is-active' : ''} ${synced ? '' : 'is-plain'}`}
-                onClick={() => line.timeMs !== null && player.seek(line.timeMs / 1000)}
-              >
-                {line.text}
-                {line.translation ? <span className="lyric-translation">{line.translation}</span> : null}
-              </p>
-            ))
+            lines.map((line, i) => {
+              // 以当前行为中心做「纵深」：离得越远越浅、越小。
+              const distance = activeIndex < 0 ? 0 : Math.min(Math.abs(i - activeIndex), 8);
+              const depthStyle =
+                activeIndex < 0
+                  ? undefined
+                  : {
+                      opacity: Math.max(0.14, 1 - distance * 0.16),
+                      transform: `scale(${distance === 0 ? 1.05 : Math.max(0.82, 1 - distance * 0.03)})`,
+                    };
+              return (
+                <p
+                  key={`${line.timeMs}-${i}`}
+                  ref={i === activeIndex ? activeLineRef : null}
+                  className={`lyric-line ${i === activeIndex ? 'is-active' : ''} ${synced ? '' : 'is-plain'}`}
+                  style={depthStyle}
+                  onClick={() => line.timeMs !== null && player.seek(line.timeMs / 1000)}
+                >
+                  {line.text}
+                  {line.translation ? <span className="lyric-translation">{line.translation}</span> : null}
+                </p>
+              );
+            })
           )}
         </div>
       </div>
@@ -267,6 +268,15 @@ export function PlayerScreen({ player, onClose }: { player: Player; onClose: () 
             title={player.repeat === 'one' ? '单曲循环' : player.repeat === 'all' ? '列表循环' : '不循环'}
           >
             {player.repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+          </button>
+          <button
+            type="button"
+            className={`icon-button favorite ${player.favorite ? 'is-on' : ''}`}
+            onClick={() => void player.toggleFavorite()}
+            aria-label={player.favorite ? '取消收藏' : '收藏'}
+            title={player.favorite ? '取消收藏' : '收藏'}
+          >
+            <Heart size={18} fill={player.favorite ? 'currentColor' : 'none'} />
           </button>
         </div>
 

@@ -1199,11 +1199,6 @@ section {
   color: var(--muted);
 }
 
-.player-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
 
 .player-lyrics {
   overflow-y: auto;
@@ -1225,7 +1220,8 @@ section {
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.33);
   cursor: pointer;
-  transition: color 0.18s ease;
+  transform-origin: center center;
+  transition: color 0.3s ease, opacity 0.38s ease, transform 0.38s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
 .lyric-line:hover {
@@ -1313,6 +1309,10 @@ section {
 
 .player-play:hover {
   transform: scale(1.04);
+}
+
+.player-controls .favorite {
+  margin-left: 14px;
 }
 
 .player-volume {

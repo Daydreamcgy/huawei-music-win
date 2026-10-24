@@ -109,6 +109,7 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 | `Space`（非输入框） | 播放/暂停 |
 | 点迷你条封面/标题或右下角图标 | 展开播放页 |
 | 收藏页红心 | 取消收藏（乐观更新，失败回滚） |
+| 播放页红心 | 已并入底部播放条（循环按钮右侧），和传输控制同一行 |
 
 ## 4. 视觉规范
 
@@ -128,7 +129,10 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 排版：页面标题 27px/600、banner 标题 30px/600、区块标题 18px/600、行标题 13px/500、正文 14px、次级 12px。
 字体栈优先 `HarmonyOS Sans SC`，回退 `MiSans` / `Microsoft YaHei UI`。
 
-**动效克制**：卡片 hover `translateY(-3px)`、播放页 220ms 上浮淡入、红心/进度 160ms 过渡。不做弹跳、不做彩色阴影。
+**动效克制**：卡片 hover `translateY(-3px)`、播放页 200ms 淡入、红心/进度 160ms 过渡。不做弹跳、不做彩色阴影。
+
+**歌词纵深**：以当前行为中心，按 `|i - active|` 计算，透明度和 `scale()` 逐行递减（opacity 1 → 0.14，
+scale 1.05 → 0.82，最多算 8 行），当前行白色加粗，形成前后层次；过渡 380ms，切歌时是滑动而不是跳变。
 
 ### 4.1 窗口外壳
 

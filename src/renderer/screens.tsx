@@ -64,7 +64,8 @@ export function HomeScreen({
             <p className="hero-artist">{artistsOf(hero)}</p>
             <div className="hero-actions">
               <button type="button" className="primary-button" onClick={() => onPlay(heroPool, 0)}>
-                <Play size={15} fill="currentColor" /> 播放
+                <Play size={15} fill="currentColor" />
+                <span>播放</span>
               </button>
               {hero.durationSeconds ? <span className="hero-meta">{formatTime(hero.durationSeconds)}</span> : null}
             </div>
@@ -185,7 +186,8 @@ export function FavoritesScreen({
           </p>
         </div>
         <button type="button" className="primary-button" disabled={filtered.length === 0} onClick={() => onPlay(filtered, 0)}>
-          <Play size={15} fill="currentColor" /> 播放全部
+          <Play size={15} fill="currentColor" />
+          <span>播放全部</span>
         </button>
       </header>
 
