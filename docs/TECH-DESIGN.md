@@ -73,10 +73,12 @@ App（grid：左栏 232px / 右栏；行：内容 / 播放条 76px）
 
 只有两层，不引 Redux/Zustand：
 
-- **App 级**：`auth`、库数据（收藏/历史/总数/loading）、`route`、`playerOpen`、`toast`、`quality`、`volume`。
+- **App 级**：`auth`、库数据（收藏/历史/总数/loading）、`route`、`playerOpen`、`queueOpen`、`menu`（右键菜单目标）、`toast`、`quality`、`volume`。
 - **播放级**（`usePlayer`）：`queue`、`index`、`playing`、`buffering`、`position`、`duration`、`lyrics`、`favorite`、`repeat`、`shuffle`。
 
 `usePlayer` 内部用 ref 镜像关键状态（`queueRef`、`indexRef`、`repeatRef`…），避免音频事件回调里读到过期闭包。
+队列的增删（`enqueueNext` / `enqueueLast` / `removeAt` / `clearUpcoming` / `jumpTo` / `restore`）都在
+`usePlayer` 里同步更新 state 与 ref，`index` 始终指向"正在播的这一首"。
 
 ### 3.3 关键数据流
 
@@ -105,13 +107,33 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
                    └→ favoriteState() 异步，失败静默
 ```
 
+**播放队列**
+
+```
+队列变化 → 1200ms 防抖 → queue.save({tracks, index, positionSeconds})
+播放中   → 每 10s       → queue.save(…positionCommit.current)
+启动     → queue.load() → restore(tracks, index, position)
+           ├→ 载入并 seek 到上次进度，**不自动出声**
+           └→ 队列非空时不再覆盖（避免抢占用户正在点的歌）
+循环/随机 → settings.update({repeatMode, shuffle})，启动时回灌到播放器
+```
+
+队列语义：`index` 之前的都算"已播放"，之后是"接下来"；`repeat === 'off'` 播到底就停，
+`'all'` 绕回第 0 首，`'one'` 单曲重播。**播放全部必须是整列**：歌单页会先把剩余分页拉全再建队列，
+否则队列只覆盖已加载的那一页，听感上就是"播几首又绕回开头"。
+
 ### 3.4 交互约定
 
 | 操作 | 行为 |
 |---|---|
 | 双击行 / 行内播放按钮 / Enter、Space | 播放并把该列表设为队列 |
+| 右键任意歌曲行 | 菜单：立即播放 / 下一首播放 / 添加到播放队列 |
+| 点迷你条 / 播放页的队列按钮 | 右侧抽屉：正在播放 + 接下来 + 已播放 |
+| 队列里点某首 / 悬停点 × | 跳过去 / 从队列移除（正在播放那行不给删） |
+| 队列头部「清空待播」 | 只留正在播放的这一首 |
+| 点迷你条进度线 | 跳转到该时间点（2px 细线，命中区 9px） |
 | 点击播放页歌词行 | 跳转到该时间点 |
-| `Esc` | 收起播放页 |
+| `Esc` | 收起播放页 / 关闭队列与右键菜单 |
 | `Space`（非输入框） | 播放/暂停 |
 | 点迷你条封面/标题或右下角图标 | 展开播放页 |
 | 收藏页红心 | 取消收藏（乐观更新，失败回滚） |
