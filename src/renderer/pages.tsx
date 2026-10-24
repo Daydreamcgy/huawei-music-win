@@ -574,7 +574,7 @@ export function SettingsScreen({
         <h2 className="settings-group-title">关于</h2>
         <SettingRow
           title="华为音乐 · 学习版"
-          hint="0.0.1 内部版 · 非官方客户端，仅供个人学习研究，不得分发"
+          hint="0.0.2 内部版 · 非官方客户端，仅供个人学习研究，不得分发"
           control={
             <button type="button" className="ghost-button" onClick={onQuit}>
               退出程序
