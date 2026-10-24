@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Info, ListMusic, LogIn, LogOut, Play, RefreshCw, Settings, ShieldCheck, Trash2 } from 'lucide-react';
+import { ChevronLeft, Info, ListMusic, LogIn, LogOut, Play, RefreshCw, Settings, ShieldCheck, Trash2 } from 'lucide-react';
 import type { AppSettings, AuthStatus, LyricsCacheInfo, Playlist, Track } from '../shared/types';
 import { api } from './lib/api';
 import { artistsOf, Cover, EmptyState, SectionHeader, SkeletonRows, TrackRow } from './ui';
@@ -226,11 +226,13 @@ export function PlaylistScreen({
   currentId,
   playing,
   onPlay,
+  onBack,
 }: {
   playlist: Playlist;
   currentId?: string;
   playing: boolean;
   onPlay: PlayHandler;
+  onBack: () => void;
 }) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [nextStart, setNextStart] = useState(0);
@@ -272,6 +274,9 @@ export function PlaylistScreen({
 
   return (
     <div className="screen">
+      <button type="button" className="detail-back" onClick={onBack}>
+        <ChevronLeft size={14} /> 我的歌单
+      </button>
       <header className="detail-head">
         <Cover src={playlist.coverUrl} size={132} radius={14} className="detail-cover" />
         <div className="detail-meta">
@@ -584,46 +589,46 @@ export function SettingsScreen({
   );
 }
 
-/* ── 侧栏：歌单列表 + 底部设置 ──────────────────────────── */
+/* ── 我的歌单（整页）────────────────────────────────────── */
 
-export function SidebarPlaylists({
+export function PlaylistsScreen({
   playlists,
   loading,
-  activeId,
   onOpen,
 }: {
   playlists: Playlist[];
   loading: boolean;
-  activeId?: string;
   onOpen: (playlist: Playlist) => void;
 }) {
   return (
-    <div className="side-playlists">
-      <div className="side-section-head">
-        <span>我的歌单</span>
-        {playlists.length ? <span className="side-count">{playlists.length}</span> : null}
-      </div>
-      <div className="side-scroll">
-        {loading && playlists.length === 0 ? (
-          <div className="side-empty">正在读取…</div>
-        ) : playlists.length === 0 ? (
-          <div className="side-empty">还没有歌单</div>
-        ) : (
-          playlists.map(playlist => (
-            <button
-              type="button"
-              key={playlist.id}
-              className={`side-playlist ${activeId === playlist.id ? 'is-active' : ''}`}
-              onClick={() => onOpen(playlist)}
-              title={playlist.title}
-            >
-              <Cover src={playlist.coverUrl} size={24} radius={6} />
-              <span className="side-playlist-title">{playlist.title}</span>
-              {playlist.count ? <span className="side-count">{playlist.count}</span> : null}
+    <div className="screen">
+      <header className="screen-head">
+        <div>
+          <h1>我的歌单</h1>
+          <p className="screen-sub">{playlists.length ? `共 ${playlists.length} 个` : '华为音乐里的自建歌单'}</p>
+        </div>
+      </header>
+
+      {loading && playlists.length === 0 ? (
+        <SkeletonRows count={4} />
+      ) : playlists.length === 0 ? (
+        <EmptyState title="还没有歌单" hint="在华为音乐里建的歌单会同步到这里" />
+      ) : (
+        <div className="card-grid">
+          {playlists.map(playlist => (
+            <button type="button" key={playlist.id} className="card" onClick={() => onOpen(playlist)}>
+              <span className="card-art">
+                <Cover src={playlist.coverUrl} radius={12} />
+                <span className="card-play">
+                  <ListMusic size={16} />
+                </span>
+              </span>
+              <span className="card-title">{playlist.title}</span>
+              <span className="card-sub">{playlist.count ? `${playlist.count} 首` : '歌单'}</span>
             </button>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

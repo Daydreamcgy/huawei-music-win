@@ -198,94 +198,6 @@ input {
   width: 100%;
 }
 
-/* 侧栏歌单：导航下面吃掉剩余高度，自己滚动 */
-.side-playlists {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  margin-top: -8px;
-}
-
-.side-section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px 7px;
-  font-size: 11.5px;
-  letter-spacing: 0.06em;
-  color: var(--faint);
-}
-
-.side-scroll {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  overflow-y: auto;
-  min-height: 0;
-  padding-right: 2px;
-}
-
-.side-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.side-scroll::-webkit-scrollbar-thumb {
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.side-playlist {
-  -webkit-app-region: no-drag;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  height: 34px;
-  padding: 0 10px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--muted);
-  font-size: 12.5px;
-  text-align: left;
-  cursor: pointer;
-  flex: none;
-}
-
-.side-playlist:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-}
-
-.side-playlist.is-active {
-  background: rgba(255, 255, 255, 0.09);
-  color: var(--text);
-}
-
-.side-playlist .cover {
-  flex: none;
-}
-
-.side-playlist-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.side-count {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.side-empty {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--faint);
-}
-
 .account {
   display: flex;
   align-items: center;
@@ -1935,4 +1847,22 @@ section {
 
 .switch.is-on > span {
   transform: translateX(18px);
+}
+
+/* 歌单详情页的返回 */
+.detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.detail-back:hover {
+  color: var(--text);
 }

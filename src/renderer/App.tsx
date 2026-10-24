@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Copy, Heart, Home, ListMusic, Minus, Search, Square, X } from 'lucide-react';
+import { Compass, Copy, Heart, Home, ListMusic, Minus, Search, Square, X } from 'lucide-react';
 import type { AppSettings, AuthStatus, LyricsCacheInfo, Playlist, Track } from '../shared/types';
 import { api } from './lib/api';
 import { usePlayer } from './lib/player';
 import { FavoritesScreen, HomeScreen, LoginScreen } from './screens';
-import { HallScreen, PlaylistScreen, SearchScreen, SettingsScreen, SidebarFooter, SidebarPlaylists } from './pages';
+import { HallScreen, PlaylistScreen, PlaylistsScreen, SearchScreen, SettingsScreen, SidebarFooter } from './pages';
 import { MiniPlayer, PlayerScreen } from './PlayerView';
 import logo from './assets/app-icon.png';
 
@@ -12,6 +12,7 @@ type Route =
   | { name: 'home' }
   | { name: 'hall' }
   | { name: 'favorites' }
+  | { name: 'playlists' }
   | { name: 'settings' }
   | { name: 'playlist'; playlist: Playlist }
   | { name: 'search'; query: string };
@@ -337,7 +338,7 @@ export function App() {
                 className={`nav-item ${route.name === 'hall' ? 'is-active' : ''}`}
                 onClick={() => setRoute({ name: 'hall' })}
               >
-                <ListMusic size={17} />
+                <Compass size={17} />
                 音乐厅
               </button>
               <button
@@ -349,14 +350,16 @@ export function App() {
                 我的收藏
                 {total > 0 ? <span className="nav-count">{total}</span> : null}
               </button>
+              <button
+                type="button"
+                className={`nav-item ${route.name === 'playlists' || route.name === 'playlist' ? 'is-active' : ''}`}
+                onClick={() => setRoute({ name: 'playlists' })}
+              >
+                <ListMusic size={17} />
+                我的歌单
+                {playlists.length > 0 ? <span className="nav-count">{playlists.length}</span> : null}
+              </button>
             </nav>
-
-            <SidebarPlaylists
-              playlists={playlists}
-              loading={playlistsLoading}
-              activeId={route.name === 'playlist' ? route.playlist.id : undefined}
-              onOpen={openPlaylist}
-            />
           </>
         ) : null}
 
@@ -436,6 +439,8 @@ export function App() {
               onPlay={play}
               onToggleFavorite={track => void handleToggleFavorite(track)}
             />
+          ) : route.name === 'playlists' ? (
+            <PlaylistsScreen playlists={playlists} loading={playlistsLoading} onOpen={openPlaylist} />
           ) : route.name === 'playlist' ? (
             <PlaylistScreen
               key={route.playlist.id}
@@ -443,6 +448,7 @@ export function App() {
               currentId={player.current?.id}
               playing={player.playing}
               onPlay={play}
+              onBack={() => setRoute({ name: 'playlists' })}
             />
           ) : route.name === 'search' ? (
             <SearchScreen

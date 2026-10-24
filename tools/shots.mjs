@@ -42,8 +42,11 @@ await clickText('音乐厅');
 await page.waitForTimeout(1200);
 await shoot('hall');
 
-// 侧栏第一个歌单：进去抓详情
-await page.evaluate(() => document.querySelector('.side-playlist')?.click());
+// 我的歌单 → 第一个歌单详情
+await clickText('我的歌单');
+await page.waitForTimeout(1200);
+await shoot('playlists');
+await page.evaluate(() => document.querySelector('.card')?.click());
 await page.waitForTimeout(2000);
 await shoot('playlist');
 

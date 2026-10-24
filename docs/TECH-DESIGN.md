@@ -53,11 +53,10 @@
 
 ```
 App（grid：左栏 232px / 右栏；行：内容 / 播放条 76px）
-├─ sidebar              品牌（拖拽区）/ 首页 / 音乐厅 / 我的收藏（带数量）
-│                       我的歌单（可滚动列表）/ 底部「设置」入口
+├─ sidebar              品牌（拖拽区）/ 首页 / 音乐厅 / 我的收藏 / 我的歌单 / 底部「设置」入口
 ├─ stage
 │   ├─ TitleBar         52px 自绘标题栏：搜索框（在线搜索）+ 最小化/最大化/关闭（按钮内缩）
-│   └─ main             LoginScreen | HomeScreen | HallScreen | FavoritesScreen
+│   └─ main             LoginScreen | HomeScreen | HallScreen | FavoritesScreen | PlaylistsScreen
 │                       | PlaylistScreen | SearchScreen | SettingsScreen
 ├─ MiniPlayer           常驻 76px 播放条（无曲目时是空态）
 ├─ PlayerScreen         全屏播放页（覆盖层 from 52px，Esc 关闭）
@@ -65,8 +64,9 @@ App（grid：左栏 232px / 右栏；行：内容 / 播放条 76px）
 └─ toast
 ```
 
-路由是一个判别联合（`{ name: 'home' | 'hall' | 'favorites' | 'settings' } | { name: 'playlist'; playlist } | { name: 'search'; query }`），
-不引路由库；账号信息原来的底部账号块已经搬进设置页，侧栏只留导航。
+路由是一个判别联合（`{ name: 'home' | 'hall' | 'favorites' | 'playlists' | 'settings' }`
+`| { name: 'playlist'; playlist } | { name: 'search'; query }`），不引路由库；
+账号信息原来的底部账号块已经搬进设置页，侧栏只留导航，歌单也不再在侧栏展开。
 `PlaylistScreen` / `SearchScreen` 自己管分页状态（`start` / `hasMore` / `loadingMore`），App 只传当前歌单或关键词。
 
 ### 3.2 状态
