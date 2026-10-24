@@ -21,7 +21,7 @@
   --radius-md: 10px;
   --radius-sm: 7px;
   --sidebar: 232px;
-  --titlebar: 44px;
+  --titlebar: 52px;
   --playerbar: 76px;
 }
 
@@ -261,7 +261,7 @@ input {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding-left: 22px;
+  padding: 0 6px 0 22px;
   height: var(--titlebar);
   min-width: 0;
 }
@@ -316,15 +316,17 @@ input {
 .window-controls {
   -webkit-app-region: no-drag;
   display: flex;
-  align-self: stretch;
+  align-self: center;
+  gap: 2px;
 }
 
 .window-button {
-  width: 46px;
-  height: 100%;
+  width: 42px;
+  height: 30px;
   display: grid;
   place-items: center;
   border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -1442,7 +1444,7 @@ section {
   top: 0;
   left: 0;
   right: 0;
-  height: 48px;
+  height: var(--titlebar);
   z-index: 60;
   display: flex;
   align-items: center;

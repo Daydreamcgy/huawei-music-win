@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+﻿import { randomBytes } from 'node:crypto';
 import { session as electronSession, WebContentsView } from 'electron';
 import { electronBypassRules, proxyRules, readProxySettings } from './proxy.mjs';
 import { createAttempt, exchangeCode, exchangeMusicSession, isAllowedLoginUrl, isCallback } from '../auth.mjs';
@@ -35,7 +35,7 @@ export function tracksFromFavorites(response: any): Track[] {
 // The official page is hosted in a WebContentsView inside the main window instead of a second OS
 // window. Isolation is unchanged: no preload, no Node, its own temporary partition. The top strip
 // stays with the app so the user always has a visible way to cancel.
-export const LOGIN_VIEW_TOP_INSET = 48;
+export const LOGIN_VIEW_TOP_INSET = 52;
 
 export type LoginHost = {
   parent: Electron.BrowserWindow;

@@ -55,10 +55,10 @@
 App（grid：左栏 232px / 右栏；行：内容 / 播放条 76px）
 ├─ sidebar              品牌（拖拽区）/ 首页 / 我的收藏（带数量）/ 底部账号块
 ├─ stage
-│   ├─ TitleBar         44px 自绘标题栏：搜索框 + 最小化/最大化/关闭
+│   ├─ TitleBar         52px 自绘标题栏：搜索框 + 最小化/最大化/关闭（按钮内缩）
 │   └─ main             LoginScreen | HomeScreen | FavoritesScreen
 ├─ MiniPlayer           常驻 76px 播放条（无曲目时是空态）
-├─ PlayerScreen         全屏播放页（覆盖层 from 44px，Esc 关闭）
+├─ PlayerScreen         全屏播放页（覆盖层 from 52px，Esc 关闭）
 ├─ login-strip          登录中顶部 48px 取消条
 └─ toast
 ```
@@ -123,7 +123,7 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 | `--like` | `#ff375f` | 红心、强调 |
 | `--radius-xl/lg/md/sm` | 20 / 14 / 10 / 7 px | banner / 卡片 / 行 / 小控件 |
 | `--sidebar` | 232px | 侧栏宽度 |
-| `--titlebar` | 44px | 自绘标题栏高度（登录视图也按这个内缩） |
+| `--titlebar` | 52px | 自绘标题栏高度（登录视图 `LOGIN_VIEW_TOP_INSET` 与之等值） |
 | `--playerbar` | 76px | 常驻播放条高度 |
 
 排版：页面标题 27px/600、banner 标题 30px/600、区块标题 18px/600、行标题 13px/500、正文 14px、次级 12px。
@@ -138,6 +138,7 @@ scale 1.05 → 0.82，最多算 8 行），当前行白色加粗，形成前后�
 
 - `BrowserWindow` 用 `frame: false` + `backgroundColor: '#08080a'`，没有系统标题栏，避免顶部出现一条割裂的白条。
 - 标题栏与侧栏品牌区用 `-webkit-app-region: drag` 拖拽；搜索框、导航、窗口按钮显式 `no-drag`，否则点不到。
+- 标题栏高 52px，内容垂直居中（上下各 11px 留白），窗口按钮 42×30 圆角内缩、不再贴顶贴边，悬停底色不会压到窗口圆角。
 - 最小化/最大化/关闭走 IPC：`window:minimize` `window:toggle-maximize` `window:close`；最大化状态由主进程 `maximize`/`unmaximize` 事件推回渲染层（`window:maximized-changed`），按钮图标随之切换。
 - 应用图标：`build/icon-src.png`（用户提供的官方图标）→ `scripts/make-icon.mjs` → `build/icon.png`(512) / `build/icon.ico`(16–256) / `build/tray.png` / `src/renderer/assets/app-icon.png`。主进程窗口图标、`build.win.icon`、侧栏品牌、启动页都取这一份。
 
