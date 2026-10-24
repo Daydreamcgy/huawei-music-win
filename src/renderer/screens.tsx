@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ChevronRight, Play, Search } from 'lucide-react';
+import { ChevronRight, Play, Search, X } from 'lucide-react';
 import type { Track } from '../shared/types';
 import { artistsOf, Cover, EmptyState, formatTime, SectionHeader, SkeletonRows, TrackRow } from './ui';
 import logo from './assets/app-icon.png';
@@ -192,6 +192,22 @@ export function FavoritesScreen({
         </button>
       </header>
 
+      <div className="list-filter">
+        <Search size={14} />
+        <input
+          value={filter}
+          onChange={event => onFilterChange(event.target.value)}
+          placeholder="在收藏里筛选"
+          spellCheck={false}
+          aria-label="在收藏里筛选"
+        />
+        {filter ? (
+          <button type="button" className="search-clear" onClick={() => onFilterChange('')} aria-label="清空筛选">
+            <X size={13} />
+          </button>
+        ) : null}
+      </div>
+
       {loading && tracks.length === 0 ? (
         <SkeletonRows count={10} />
       ) : filtered.length === 0 ? (
@@ -222,12 +238,6 @@ export function FavoritesScreen({
           ))}
         </div>
       )}
-
-      {filter && filtered.length === 0 ? (
-        <button type="button" className="ghost-link" onClick={() => onFilterChange('')}>
-          <Search size={14} /> 清空筛选
-        </button>
-      ) : null}
     </div>
   );
 }
