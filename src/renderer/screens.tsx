@@ -1,7 +1,8 @@
-﻿import { useMemo } from 'react';
+import { useMemo } from 'react';
 import { ChevronRight, Play, Search } from 'lucide-react';
 import type { Track } from '../shared/types';
 import { artistsOf, Cover, EmptyState, formatTime, SectionHeader, SkeletonRows, TrackRow } from './ui';
+import logo from './assets/app-icon.png';
 
 type PlayHandler = (tracks: Track[], index: number) => void;
 
@@ -243,7 +244,7 @@ export function LoginScreen({
   return (
     <div className="login-screen">
       <div className="login-card">
-        <div className="login-mark">♪</div>
+        <img src={logo} alt="" className="login-mark" />
         <h1>华为音乐</h1>
         <p className="login-desc">用华为账号登录，读取你的收藏与歌单。</p>
         <button type="button" className="primary-button login-button" onClick={onLogin} disabled={pending}>

@@ -1427,16 +1427,14 @@ section {
   text-align: center;
 }
 
+/* 登录页的标记用的就是应用图标本体（和左上角 brand 同一个 asset），
+   PNG 自带白色圆角底板和透明四角，不要再套一层背景/圆角。 */
 .login-mark {
-  display: grid;
-  place-items: center;
-  width: 54px;
-  height: 54px;
+  display: block;
+  width: 68px;
+  height: 68px;
   margin: 0 auto 18px;
-  border-radius: 16px;
-  background: #f4f4f6;
-  color: #0a0a0c;
-  font-size: 25px;
+  filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.5));
 }
 
 .login-card h1 {
