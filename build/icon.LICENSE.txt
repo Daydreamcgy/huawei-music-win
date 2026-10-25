@@ -1,4 +1,4 @@
-应用图标（build/icon-src.svg → build/icon-src.png → build/icon.png / icon.ico / tray.png /
+应用图标（源图 build/icon-src.png → build/icon.png / icon.ico / tray.png /
 src/renderer/assets/app-icon.png / src/main/icons.ts 的托盘 base64）
 
 为本项目原创作品，随本项目代码以 AGPL-3.0-only 授权。
