@@ -1,5 +1,5 @@
 import { X, ListPlus, ListStart, Play, Trash2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Track } from '../shared/types';
 import type { Player } from './PlayerView';
 import { Cover, artistsOf } from './ui';
@@ -51,20 +51,58 @@ function QueueTrack({
   );
 }
 
+/** 收起动画跑完才卸载，和 styles.css 里 queue-panel-out 的时长对齐。 */
+const LEAVE_MS = 200;
+
 /** 右侧播放队列：正在播放 + 接下来 + 已播放，点哪首跳哪首。 */
-export function QueuePanel({ player, onClose }: { player: Player; onClose: () => void }) {
+export function QueuePanel({
+  player,
+  open,
+  onClose,
+}: {
+  player: Player;
+  open: boolean;
+  onClose: () => void;
+}) {
   const current = player.current;
   const upcoming = player.queue.slice(player.index + 1);
   const played = player.index > 0 ? player.queue.slice(0, player.index) : [];
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // 抽屉有开有合：开着时留在树上，收起动画放完再卸载。
+  // 开合都走 CSS 动画（keyframes 自带起手帧），不依赖 rAF——
+  // 窗口被挡住时 rAF 会被节流到几百毫秒，用它来「等下一帧」抽屉会卡住不出现。
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    const timer = setTimeout(() => {
+      setMounted(false);
+      setClosing(false);
+    }, LEAVE_MS);
+    return () => clearTimeout(timer);
+  }, [open, mounted]);
 
   // 每次打开都从「正在播放」看起，别停在上次的位置。
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
   }, []);
 
+  if (!mounted) return null;
+
   return (
-    <aside className="queue-panel" aria-label="播放队列">
+    <aside
+      className={`queue-panel ${closing ? 'is-closing' : 'is-open'}`}
+      aria-label="播放队列"
+      aria-hidden={closing}
+    >
       <header className="queue-head">
         <div className="queue-head-text">
           <h2>播放队列</h2>

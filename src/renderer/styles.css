@@ -1225,13 +1225,21 @@ section {
     radial-gradient(120% 80% at 18% -12%, rgba(255, 255, 255, 0.055), transparent 62%),
     radial-gradient(90% 70% at 92% 112%, rgba(255, 255, 255, 0.022), transparent 66%);
   opacity: 0;
-  /* 收起时慢一点淡出，让封面先落进 bar；展开时快一点，别让人看见两层内容叠着 */
+  /* 收起时慢一点淡出，让封面先落进 bar */
   transition: opacity 0.34s ease;
 }
 
+/* 展开用动画、收起用过渡：动画自带起手帧，不依赖「先渲染一帧 0 再改值」，
+   窗口被挡住（rAF 被节流）时也不会卡住不动。 */
 .player-screen.is-open::before {
   opacity: 1;
-  transition-duration: 0.1s;
+  animation: stage-backdrop-in 0.14s ease-out backwards;
+}
+
+@keyframes stage-backdrop-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* 内容和封面分开走：内容往下沉、淡出，封面单独飞进 bar。 */
@@ -1246,8 +1254,15 @@ section {
 .player-screen.is-open .player-lyrics {
   opacity: 1;
   transform: none;
-  /* 让封面先动，内容跟上来 */
-  transition-delay: 0.06s;
+  /* 让封面先动半拍，内容跟上来 */
+  animation: stage-content-in 0.4s cubic-bezier(0.22, 0.68, 0.28, 1) 0.06s backwards;
+}
+
+@keyframes stage-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
 }
 
 /* 播放页打开时，顶部窗口条（左「音乐」块 + 右侧标题栏）压成和播放页同一个底色，
@@ -1598,13 +1613,55 @@ section {
   border-radius: var(--radius-lg);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   overflow: hidden;
-  animation: queue-in 0.16s ease;
+  /* 收起态：往右让 18px、淡到 0，并断掉命中，免得挡住下面的内容 */
+  opacity: 0;
+  transform: translateX(18px);
+  pointer-events: none;
 }
 
-@keyframes queue-in {
+.queue-panel.is-open {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  animation: queue-panel-in 0.26s cubic-bezier(0.22, 0.68, 0.28, 1) backwards;
+}
+
+.queue-panel.is-closing {
+  animation: queue-panel-out 0.2s ease-in backwards;
+}
+
+@keyframes queue-panel-in {
   from {
     opacity: 0;
-    transform: translateX(14px);
+    transform: translateX(18px);
+  }
+}
+
+@keyframes queue-panel-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 抽屉滑到位的同时，里面的内容再补半拍浮上来。
+   只给这两块（表头 + 列表）加，不给每一行加：队列一变行就会重挂，逐行动画会跟着闪一下。 */
+.queue-panel.is-open > * {
+  animation: queue-content-in 0.22s ease-out 0.05s backwards;
+}
+
+@keyframes queue-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queue-panel.is-open,
+  .queue-panel.is-closing,
+  .queue-panel.is-open > * {
+    animation: none;
   }
 }
 

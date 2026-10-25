@@ -575,7 +575,7 @@ export function App() {
         queueOpen={queueOpen}
       />
 
-      {queueOpen ? <QueuePanel player={player} onClose={() => setQueueOpen(false)} /> : null}
+      <QueuePanel player={player} open={queueOpen} onClose={() => setQueueOpen(false)} />
 
       {menu ? (
         <TrackMenu

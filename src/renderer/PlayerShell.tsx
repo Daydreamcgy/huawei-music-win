@@ -51,6 +51,8 @@ export function PlayerShell({
   const [arriving, setArriving] = useState(false);
 
   const mountedRef = useRef(open);
+  /** 本轮展开序列是否已经启动，防止重渲染把动画重启。 */
+  const startedRef = useRef(false);
   const stageCoverRef = useRef<HTMLDivElement | null>(null);
   const stageMetaRef = useRef<HTMLDivElement | null>(null);
   const barCoverRef = useRef<HTMLSpanElement | null>(null);
@@ -143,61 +145,40 @@ export function PlayerShell({
     animations.current.push(coverAnim, metaAnim);
   }, []);
 
-  // 展开：挂上播放页 → 从条里的位置长出来 → 内容跟着浮上来
+  // 先挂上播放页，下面那个 effect 才能量到大封面
   useLayoutEffect(() => {
-    if (!open) return;
-    let cancelled = false;
+    if (open) setMounted(true);
+  }, [open]);
+
+  // 展开：从条里的位置长出来，内容跟着浮上来。
+  // 全程不依赖 rAF：封面/歌名是 Web Animations（自带起手帧），
+  // 内容层与背景是 CSS 动画（keyframes 自带起手帧），窗口被挡住、rAF 被节流也不会卡住。
+  useLayoutEffect(() => {
+    if (!open || !mounted) return;
+    if (startedRef.current) return;
+    startedRef.current = true;
     setArriving(false);
-
-    const run = async () => {
-      if (!mountedRef.current) {
-        show(true);
-        // 等 React 把播放页真正挂上去（下一帧），否则量不到大封面
-        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-      }
-      if (cancelled) return;
-      const morph = reduce ? null : measure();
-      if (!morph) {
-        stopAnimations();
-        setActive(true);
-        return;
-      }
-      stopAnimations();
-      play('in', morph);
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-      if (cancelled) return;
-      setActive(true);
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, reduce, measure, play, show, stopAnimations]);
+    const morph = reduce ? null : measure();
+    stopAnimations();
+    if (morph) play('in', morph);
+    setActive(true);
+  }, [open, mounted, reduce, measure, play, stopAnimations]);
 
   // 收起：封面飞回条里，内容下沉淡出，动画放完再卸载
   useLayoutEffect(() => {
-    if (open) return;
-    if (!mountedRef.current) return;
-    let cancelled = false;
-
-    const run = async () => {
-      const morph = reduce ? null : measure();
-      stopAnimations();
-      if (morph) play('out', morph);
-      setActive(false);
-      setArriving(true);
-      await new Promise<void>(resolve => setTimeout(resolve, reduce ? 0 : MORPH_MS));
-      if (cancelled) return;
+    if (open || !mounted) return;
+    startedRef.current = false;
+    const morph = reduce ? null : measure();
+    stopAnimations();
+    if (morph) play('out', morph);
+    setActive(false);
+    setArriving(true);
+    const timer = setTimeout(() => {
       show(false);
       setArriving(false);
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, reduce, measure, play, show, stopAnimations]);
+    }, reduce ? 0 : MORPH_MS);
+    return () => clearTimeout(timer);
+  }, [open, mounted, reduce, measure, play, show, stopAnimations]);
 
   // 队列被清空时（没有当前曲目）直接收摊，避免留一层空播放页
   useEffect(() => {
