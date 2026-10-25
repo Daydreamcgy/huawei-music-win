@@ -962,14 +962,15 @@ section {
   font-size: 12px;
 }
 
-/* ── 播放条 ─────────────────────────────────────────────── */
+/* ── 底部播放条 ─────────────────────────────────────────── */
 
-/* 三段式：左「当前曲目」/ 中「传输键」/ 右「时间 + 音量 + 展开」，
-   传输键永远在窗口正中，和播放页的播放键对齐。 */
-.mini-player {
+/* 一条 bar 两副面孔：收起就是迷你条；展开时播放页盖在它上面，它自己不动。
+   三段式：左「当前曲目」/ 中「模式 + 传输键」/ 右「时间 + 收藏 + 队列 + 音量 + 收起」。 */
+.bar {
   grid-column: 1 / -1;
   grid-row: 2;
   position: relative;
+  z-index: 45;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
@@ -980,21 +981,14 @@ section {
   border-top: 1px solid var(--line);
 }
 
-.mini-player.is-idle {
+.bar.is-idle {
   display: flex;
+  align-items: center;
   justify-content: space-between;
 }
 
-.mini-right {
-  grid-column: 3;
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 /* 点击可跳转：看得见的只有 2px 细线，命中区放大到 9px，免得点不中。 */
-.mini-progress {
+.bar-progress {
   position: absolute;
   left: 0;
   right: 0;
@@ -1004,7 +998,7 @@ section {
   cursor: pointer;
 }
 
-.mini-progress::before {
+.bar-progress::before {
   content: '';
   position: absolute;
   left: 0;
@@ -1014,7 +1008,7 @@ section {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.mini-progress span {
+.bar-progress span {
   position: absolute;
   left: 0;
   top: 4px;
@@ -1023,17 +1017,50 @@ section {
   transition: width 0.2s linear;
 }
 
-.mini-progress:hover span {
+.bar-progress:hover span {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.mini-track {
-  justify-self: start;
+/* 拖动时进度线加粗、露出圆点：播放页里也只剩这一条进度，得够好抓 */
+.bar-progress {
+  touch-action: none;
+}
+
+.bar-progress.is-scrubbing::before,
+.bar-progress:hover::before {
+  height: 3px;
+  top: 3px;
+}
+
+.bar-progress.is-scrubbing span,
+.bar-progress:hover span {
+  height: 3px;
+  top: 3px;
+  background: #fff;
+}
+
+.bar-progress .bar-thumb {
+  position: absolute;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* 左：当前曲目。展开时它变成播放页里的大封面，条里这一份先藏起来。 */
+.bar-now {
+  min-width: 0;
+}
+
+.bar-track {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 320px;
-  min-width: 210px;
+  max-width: 300px;
   padding: 6px;
   border: none;
   border-radius: var(--radius-md);
@@ -1043,18 +1070,27 @@ section {
   cursor: pointer;
 }
 
-.mini-track:hover {
+.bar-track:hover {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.mini-meta {
+.bar-cover {
+  flex: none;
+  display: block;
+  width: 44px;
+  height: 44px;
+  transition: opacity 0.12s ease;
+}
+
+.bar-meta {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  transition: opacity 0.16s ease;
 }
 
-.mini-title {
+.bar-title {
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
@@ -1062,7 +1098,7 @@ section {
   text-overflow: ellipsis;
 }
 
-.mini-sub {
+.bar-artist {
   font-size: 11.5px;
   color: var(--muted);
   white-space: nowrap;
@@ -1070,19 +1106,37 @@ section {
   text-overflow: ellipsis;
 }
 
-.mini-controls {
-  grid-column: 2;
+/* 收起动画的后半段把歌名淡回来，接住从播放页飞下来的那一份 */
+.bar-now.is-away .bar-cover,
+.bar-now.is-away .bar-meta {
+  opacity: 0;
+}
+
+.bar-now.is-away.is-arriving .bar-meta {
+  opacity: 1;
+  transition-delay: 0.24s;
+}
+
+/* 中：传输键。播放键要落在窗口正中，模式键挂在它左边，不参与居中。 */
+.bar-center {
+  position: relative;
   justify-self: center;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-.mini-play {
+.bar-mode {
+  position: absolute;
+  right: calc(100% + 10px);
+}
+
+.bar-play {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  margin: 0 2px;
   border: none;
   border-radius: 999px;
   background: #f4f4f6;
@@ -1091,73 +1145,109 @@ section {
   transition: transform 0.12s ease;
 }
 
-.mini-play:hover {
+.bar-play:hover {
   transform: scale(1.05);
 }
 
-.mini-time {
+/* 右：时间 + 收藏 + 队列 + 音量 + 收起 */
+.bar-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-time {
   font-size: 11.5px;
   color: var(--faint);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.mini-volume {
+.bar-volume {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 110px;
+  width: 104px;
   color: var(--faint);
 }
 
-.mini-hint {
-  margin-left: auto;
+.bar-hint {
   padding-right: 8px;
   font-size: 12px;
   color: var(--faint);
 }
 
-.mini-idle {
+.bar-idle {
   display: flex;
   align-items: center;
   gap: 11px;
   padding-left: 6px;
 }
 
-.mini-idle-art {
+.bar-idle-art {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.06);
   color: var(--faint);
-  font-size: 15px;
+  font-size: 16px;
 }
 
-.mini-idle-text {
+.bar-idle-text {
   font-size: 12.5px;
   color: var(--muted);
 }
-
 /* ── 全屏播放页 ─────────────────────────────────────────── */
 
 /* 播放页背景只用中性渐变：不用整屏 filter 图层，窗口缩放/切歌时不会留下没重绘的空白带。 */
 .player-screen {
   position: fixed;
-  inset: var(--titlebar) 0 0 0;
-  z-index: 40;
+  inset: var(--titlebar) 0 var(--playerbar) 0;
+  z-index: 46;
   display: flex;
   flex-direction: column;
+  /* 不裁剪：收起时封面要飞出这条边界、落进下面那条 bar 里 */
+  overflow: visible;
+}
+
+/* 背景单独一层：收起时淡出露出下面的内容，只铺到 bar 上沿，不挡住 bar。 */
+.player-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background-color: var(--bg);
   /* 顶部 96px 从纯底色渐入光晕：播放页顶边要和上面 52px 窗口条严丝合缝，
      否则左上角那块会像贴了一块浅色补丁。 */
   background-image: linear-gradient(180deg, var(--bg) 0, rgba(10, 10, 12, 0) 96px),
     radial-gradient(120% 80% at 18% -12%, rgba(255, 255, 255, 0.055), transparent 62%),
     radial-gradient(90% 70% at 92% 112%, rgba(255, 255, 255, 0.022), transparent 66%);
-  overflow: hidden;
-  contain: paint;
-  animation: player-in 0.2s ease;
+  opacity: 0;
+  /* 收起时慢一点淡出，让封面先落进 bar；展开时快一点，别让人看见两层内容叠着 */
+  transition: opacity 0.34s ease;
+}
+
+.player-screen.is-open::before {
+  opacity: 1;
+  transition-duration: 0.1s;
+}
+
+/* 内容和封面分开走：内容往下沉、淡出，封面单独飞进 bar。 */
+.player-screen .player-head,
+.player-screen .player-lyrics {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.18s ease, transform 0.36s cubic-bezier(0.22, 0.68, 0.28, 1);
+}
+
+.player-screen.is-open .player-head,
+.player-screen.is-open .player-lyrics {
+  opacity: 1;
+  transform: none;
+  /* 让封面先动，内容跟上来 */
+  transition-delay: 0.06s;
 }
 
 /* 播放页打开时，顶部窗口条（左「音乐」块 + 右侧标题栏）压成和播放页同一个底色，
@@ -1171,11 +1261,6 @@ section {
   background: var(--bg);
 }
 
-@keyframes player-in {
-  from {
-    opacity: 0;
-  }
-}
 
 .player-head {
   position: relative;
@@ -1242,15 +1327,28 @@ section {
   min-height: 0;
 }
 
-.player-cover {
+/* 收起/展开时这一层整体缩放去 bar 里，圆角按比例补偿，看起来始终是 10→20px */
+.player-cover-wrap {
   width: 100%;
   max-width: 320px;
   aspect-ratio: 1;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
   box-shadow: 0 26px 56px rgba(0, 0, 0, 0.5);
+  transform-origin: 0 0;
+  will-change: transform;
+  transition: transform 0.4s cubic-bezier(0.22, 0.68, 0.28, 1),
+    border-radius 0.4s cubic-bezier(0.22, 0.68, 0.28, 1);
+}
+
+.player-cover-img {
+  width: 100%;
+  height: 100%;
 }
 
 .player-info {
   min-width: 0;
+  transition: transform 0.4s cubic-bezier(0.22, 0.68, 0.28, 1), opacity 0.26s ease;
 }
 
 .player-title {
@@ -1332,83 +1430,6 @@ section {
 
 .lyrics-empty span {
   font-size: 12.5px;
-}
-
-.player-foot {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 10px 32px 26px;
-}
-
-.player-progress {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.player-progress .time {
-  width: 38px;
-  text-align: center;
-  font-size: 11.5px;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-}
-
-/* 控制区和音量同一行、同一 grid 里，靠 align-items 保证圆心在一条水平线上 */
-.player-bar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 16px;
-}
-
-.player-controls {
-  grid-column: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-}
-
-.player-play {
-  display: grid;
-  place-items: center;
-  width: 54px;
-  height: 54px;
-  border: none;
-  border-radius: 999px;
-  background: #f4f4f6;
-  color: #0a0a0c;
-  cursor: pointer;
-  transition: transform 0.12s ease;
-}
-
-.player-play:hover {
-  transform: scale(1.04);
-}
-
-.player-extra {
-  grid-column: 1;
-  justify-self: start;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.player-volume {
-  grid-column: 3;
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 128px;
-  color: var(--faint);
 }
 
 /* ── 滑杆 ───────────────────────────────────────────────── */
@@ -1887,8 +1908,7 @@ section {
 /* 大屏播放页：列宽和封面一起放大，不然全屏反而像缩略图 */
 @media (min-width: 1600px) {
   .player-head,
-  .player-body,
-  .player-foot {
+  .player-body {
     max-width: 1240px;
   }
 
@@ -1897,7 +1917,7 @@ section {
     gap: 72px;
   }
 
-  .player-cover {
+  .player-cover-wrap {
     max-width: 360px;
   }
 }

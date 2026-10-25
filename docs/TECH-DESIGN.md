@@ -23,7 +23,7 @@
 ```
 ┌────────────────────────── Renderer（React 19） ──────────────────────────┐
 │ App.tsx     路由 + 登录流程 + 库数据 + toast                              │
-│ screens.tsx 首页 / 收藏 / 登录屏        PlayerView.tsx 迷你条 + 播放页     │
+│ screens.tsx 首页 / 收藏 / 登录屏        PlayerView.tsx 播放条 + 播放页 / PlayerShell.tsx 过渡 │
 │ lib/player.ts  Audio 元素 + 队列 + 歌词   lib/api.ts  IPC 薄封装           │
 └───────────────────────────────┬──────────────────────────────────────────┘
                                 │ window.desktop（contextBridge 白名单）
@@ -58,8 +58,9 @@ App（grid：左栏 232px / 右栏；行：内容 / 播放条 76px）
 │   ├─ TitleBar         52px 自绘标题栏：搜索框（在线搜索）+ 最小化/最大化/关闭（按钮内缩）
 │   └─ main             LoginScreen | HomeScreen | HallScreen | FavoritesScreen | PlaylistsScreen
 │                       | PlaylistScreen | SearchScreen | SettingsScreen
-├─ MiniPlayer           常驻 76px 播放条（无曲目时是空态）
-├─ PlayerScreen         全屏播放页（覆盖层 from 52px，Esc 关闭）
+├─ PlayerShell          常驻 76px 播放条 + 播放页（同一份「当前曲目」共享元素）
+│   ├─ PlayerBar        左侧曲目 / 中间传输键 / 右侧时间·收藏·队列·音量·收起
+│   └─ PlayerStage      播放页内容层（大封面 + 歌词），只铺到播放条上沿
 ├─ login-strip          登录中顶部 48px 取消条
 └─ toast
 ```
@@ -74,9 +75,15 @@ App（grid：左栏 232px / 右栏；行：内容 / 播放条 76px）
 只有两层，不引 Redux/Zustand：
 
 - **App 级**：`auth`、库数据（收藏/历史/总数/loading）、`route`、`playerOpen`、`queueOpen`、`menu`（右键菜单目标）、`toast`、`quality`、`volume`。
-- **播放级**（`usePlayer`）：`queue`、`index`、`playing`、`buffering`、`position`、`duration`、`lyrics`、`favorite`、`repeat`、`shuffle`。
+- **播放级**（`usePlayer`）：`queue`、`index`、`playing`、`buffering`、`position`、`duration`、`lyrics`、`favorite`、`mode`。
+  `mode` 是单值枚举 `'sequential' | 'all' | 'one' | 'shuffle'`（顺序 / 列表循环 / 单曲循环 / 随机），
+  不再是一个按钮管 repeat、另一个按钮管 shuffle；落盘时映射回既有的 `repeatMode` + `shuffle` 两个字段，
+  不动 `shared/types`。
+- **播放页过渡**（`PlayerShell` 内部）：`mounted`（播放页是否挂着）、`active`（是否已到终态）、
+  `arriving`（收起动画后半段，把条里的歌名淡回来）。这三者只服务动画，不落盘。
 
-`usePlayer` 内部用 ref 镜像关键状态（`queueRef`、`indexRef`、`repeatRef`…），避免音频事件回调里读到过期闭包。
+`usePlayer` 内部用 ref 镜像关键状态（`queueRef`、`indexRef`、`modeRef`…），避免音频事件回调里读到过期闭包。
+随机另存一份 `shuffleHistory`，随机模式下「上一首」回退到真正随机到过的那一首。
 队列的增删（`enqueueNext` / `enqueueLast` / `removeAt` / `clearUpcoming` / `jumpTo` / `restore`）都在
 `usePlayer` 里同步更新 state 与 ref，`index` 始终指向"正在播的这一首"。
 
@@ -115,12 +122,32 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 启动     → queue.load() → restore(tracks, index, position)
            ├→ 载入并 seek 到上次进度，**不自动出声**
            └→ 队列非空时不再覆盖（避免抢占用户正在点的歌）
-循环/随机 → settings.update({repeatMode, shuffle})，启动时回灌到播放器
+播放模式 → settings.update({repeatMode, shuffle})，启动时回灌到播放器（顺序/列表/单曲/随机 一一映射）
 ```
 
-队列语义：`index` 之前的都算"已播放"，之后是"接下来"；`repeat === 'off'` 播到底就停，
-`'all'` 绕回第 0 首，`'one'` 单曲重播。**播放全部必须是整列**：歌单页会先把剩余分页拉全再建队列，
+队列语义：`index` 之前的都算"已播放"，之后是"接下来"；播到底的行为由 `mode` 决定：
+`sequential` 停住、`all` 绕回第 0 首、`one` 重播当前首、`shuffle` 随机挑一首不重复的。
+**播放全部必须是整列**：歌单页会先把剩余分页拉全再建队列，
 否则队列只覆盖已加载的那一页，听感上就是"播几首又绕回开头"。
+
+**播放条 / 播放页（同一条 bar）**
+
+`
+点击条左侧曲目或右下角展开 ──→ PlayerShell 挂上 PlayerStage（is-open=false 起手）
+                              ├─ 量两个矩形：PlayerStage 的大封面、PlayerBar 的 44px 槽位
+                              ├─ Web Animations：translate+scale(44/320) → 0，圆角 10/scale → 20
+                              │  歌名/歌手同步 translate 到条里文字的位置，前 42% 淡出
+                              └─ 下一帧加 is-open：内容层淡入 + 上浮 28px，背景 100ms 铺满
+点击右下角收起 / Esc ────────→ 反向：动画跑完 400ms 才卸载 PlayerStage
+                              （条里那份 240ms 后才淡回来，正好接住飞下来的封面）
+`
+
+位移两端坐标必须实时量，所以用 **Web Animations API** 而不是 CSS transition：
+transition 依赖"先写起手位、等浏览器重算一次样式、再写终态"，中间任何一次样式合并都会让它直接跳到终点（实测过）；
+`animate()` 不受影响。`prefers-reduced-motion: reduce` 时跳过动画直接到位。
+
+播放条只有一条进度：2px 细线贴着条的上沿，点击或拖动都能跳转（拖动时加粗并露出圆点），
+时间读数在条右侧 —— 播放页里不再叠第二条进度条。
 
 ### 3.4 交互约定
 
@@ -128,16 +155,18 @@ api.favorites() → 循环 music.favorites({start,limit:50}) 直到 hasMore=fals
 |---|---|
 | 双击行 / 行内播放按钮 / Enter、Space | 播放并把该列表设为队列 |
 | 右键任意歌曲行 | 菜单：立即播放 / 下一首播放 / 添加到播放队列 |
-| 点迷你条 / 播放页的队列按钮 | 右侧抽屉：正在播放 + 接下来 + 已播放 |
+| 点播放条上的队列按钮（收起/展开都在同一位置） | 右侧抽屉：正在播放 + 接下来 + 已播放 |
 | 队列里点某首 / 悬停点 × | 跳过去 / 从队列移除（正在播放那行不给删） |
 | 队列头部「清空待播」 | 只留正在播放的这一首 |
-| 点迷你条进度线 | 跳转到该时间点（2px 细线，命中区 9px） |
+| 点 / 拖播放条上沿的进度线 | 跳转到该时间点（2px 细线，命中区 9px，拖动时加粗 + 圆点） |
 | 点击播放页歌词行 | 跳转到该时间点 |
 | `Esc` | 收起播放页 / 关闭队列与右键菜单 |
 | `Space`（非输入框） | 播放/暂停 |
-| 点迷你条封面/标题或右下角图标 | 展开播放页 |
+| 点播放条左侧封面/标题或右下角图标 | 展开播放页（封面从 44px 长成 320/360px，页面向下滑入） |
+| 收起播放页（右下角图标 / Esc） | 页面向下沉、封面飞进播放条，400ms 后卸载 |
+| 点播放条上的模式按钮 | 顺序 → 列表循环 → 单曲循环 → 随机 → 顺序，映射后写回设置的 `repeatMode` / `shuffle` |
 | 收藏页红心 | 取消收藏（乐观更新，失败回滚） |
-| 播放页红心 | 已并入底部播放条（循环按钮右侧），和传输控制同一行 |
+| 播放条红心 | 收藏/取消收藏当前曲目（收起与展开是同一个按钮） |
 
 ## 4. 视觉规范
 

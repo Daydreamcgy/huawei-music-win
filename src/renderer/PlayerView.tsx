@@ -17,11 +17,12 @@ import {
 } from 'lucide-react';
 import type { Track } from '../shared/types';
 import type { usePlayer } from './lib/player';
+import { modeLabel } from './lib/player';
 import { artistsOf, Cover, formatTime } from './ui';
 
 type Player = ReturnType<typeof usePlayer>;
 
-export type { Player };
+export type { Player, Track };
 
 function VolumeIcon({ value }: { value: number }) {
   if (value <= 0.001) return <VolumeX size={16} />;
@@ -70,89 +71,182 @@ function Scrubber({
   );
 }
 
-export function MiniPlayer({
+function PlayLook({ toggle, playing }: { toggle: () => void; playing: boolean }) {
+  return (
+    <button
+      type="button"
+      className="bar-play"
+      onClick={toggle}
+      aria-label={playing ? '暂停' : '播放'}
+      title={playing ? '暂停' : '播放'}
+    >
+      {playing ? (
+        <Pause size={19} fill="currentColor" />
+      ) : (
+        <Play size={19} fill="currentColor" style={{ marginLeft: 2 }} />
+      )}
+    </button>
+  );
+}
+
+/** 一个按钮四个状态：顺序 → 列表循环 → 单曲循环 → 随机 → 顺序。 */
+function ModeButton({ player }: { player: Player }) {
+  const label = modeLabel(player.mode);
+  return (
+    <button
+      type="button"
+      className={`icon-button bar-mode ${player.mode === 'sequential' ? '' : 'is-on'}`}
+      onClick={() => player.cycleMode()}
+      aria-label={`播放模式：${label}`}
+      title={player.mode === 'sequential' ? '顺序播放（点一下切列表循环）' : label}
+    >
+      {player.mode === 'shuffle' ? (
+        <Shuffle size={17} />
+      ) : player.mode === 'one' ? (
+        <Repeat1 size={17} />
+      ) : (
+        <Repeat size={17} />
+      )}
+    </button>
+  );
+}
+
+/**
+ * 底部唯一的播放条：收起时它就是迷你条；展开时它不动，上面盖一层播放页。
+ * 左边那块「封面 + 歌名 + 歌手」是共享元素 —— 展开 / 收起时由 PlayerShell
+ * 把它从条里的位置放大到播放页里的位置（以及反过来）。
+ */
+export function PlayerBar({
   player,
-  onExpand,
+  expanded,
+  onToggleStage,
   onToggleQueue,
   queueOpen,
+  hideNowPlaying,
+  arriving,
+  coverRef,
+  metaRef,
 }: {
   player: Player;
-  onExpand: () => void;
+  expanded: boolean;
+  onToggleStage: () => void;
   onToggleQueue: () => void;
   queueOpen: boolean;
+  /** 播放页展开期间把条里的这份藏起来（播放页上有一份更大的）。 */
+  hideNowPlaying: boolean;
+  /** 收起动画进行到后半段：把条里的歌名淡回来，接住飞下来的那一份。 */
+  arriving: boolean;
+  coverRef: React.RefObject<HTMLSpanElement | null>;
+  metaRef: React.RefObject<HTMLSpanElement | null>;
 }) {
   const track = player.current;
-  const percent = player.duration > 0 ? (player.position / player.duration) * 100 : 0;
+  const total = player.duration || track?.durationSeconds || 0;
+  const percent = total > 0 ? Math.min(100, Math.max(0, (player.position / total) * 100)) : 0;
 
-  // 播放条常驻：没在播放时也占位，桌面端不该因为它消失而整页跳动。
+  const [scrub, setScrub] = useState<number | null>(null);
+  const dragging = useRef(false);
+  const progressRef = useRef<HTMLDivElement | null>(null);
+  const ratioAt = (clientX: number) => {
+    const el = progressRef.current;
+    if (!el) return 0;
+    const rect = el.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+  };
+
+  const nowClass = ['bar-now', hideNowPlaying ? 'is-away' : '', hideNowPlaying && arriving ? 'is-arriving' : '']
+    .filter(Boolean)
+    .join(' ');
+
   if (!track) {
     return (
-      <div className="mini-player is-idle">
-        <div className="mini-idle">
-          <span className="mini-idle-art">♪</span>
-          <span className="mini-idle-text">未在播放</span>
+      <footer className="bar is-idle">
+        <div className="bar-idle">
+          <span className="bar-idle-art">♪</span>
+          <span className="bar-idle-text">未在播放</span>
         </div>
-        <span className="mini-hint">从收藏里挑一首开始</span>
-      </div>
+        <span className="bar-hint">双击任意一首开始</span>
+      </footer>
     );
   }
 
-  const total = player.duration || track.durationSeconds || 0;
-
   return (
-    <div className="mini-player">
+    <footer className="bar">
       <div
-        className="mini-progress"
+        className={`bar-progress ${scrub !== null ? 'is-scrubbing' : ''}`}
+        ref={progressRef}
         role="slider"
         aria-label="播放进度"
         aria-valuemin={0}
         aria-valuemax={Math.round(total)}
         aria-valuenow={Math.round(player.position)}
-        title="点击跳转"
-        onClick={event => {
+        title="点击或拖动跳转"
+        onPointerDown={event => {
           if (total <= 0) return;
-          const rect = event.currentTarget.getBoundingClientRect();
-          const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-          player.seek(ratio * total);
+          dragging.current = true;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setScrub(ratioAt(event.clientX));
+        }}
+        onPointerMove={event => {
+          if (dragging.current) setScrub(ratioAt(event.clientX));
+        }}
+        onPointerUp={event => {
+          if (!dragging.current) return;
+          dragging.current = false;
+          const ratio = ratioAt(event.clientX);
+          setScrub(null);
+          if (total > 0) player.seek(ratio * total);
+        }}
+        onPointerCancel={() => {
+          dragging.current = false;
+          setScrub(null);
         }}
       >
-        <span style={{ width: `${percent}%` }} />
+        <span style={{ width: `${(scrub ?? percent / 100) * 100}%` }} />
+        {scrub !== null ? <i className="bar-thumb" style={{ left: `${scrub * 100}%` }} /> : null}
       </div>
-      <button type="button" className="mini-track" onClick={onExpand} title="打开播放页">
-        <Cover src={track.coverUrl} size={44} radius={10} />
-        <div className="mini-meta">
-          <span className="mini-title">{track.title}</span>
-          <span className="mini-sub">{artistsOf(track)}</span>
-        </div>
-      </button>
 
-      <div className="mini-controls">
+      <div className={nowClass}>
+        <button
+          type="button"
+          className="bar-track"
+          onClick={onToggleStage}
+          title={expanded ? '收起播放页' : '打开播放页'}
+        >
+          <span className="bar-cover" ref={coverRef}>
+            <Cover src={track.coverUrl} size={44} radius={10} />
+          </span>
+          <span className="bar-meta" ref={metaRef}>
+            <span className="bar-title">{track.title}</span>
+            <span className="bar-artist">{artistsOf(track)}</span>
+          </span>
+        </button>
+      </div>
+
+      <div className="bar-center">
+        <ModeButton player={player} />
         <button type="button" className="icon-button" onClick={() => player.previous()} aria-label="上一首" title="上一首">
           <SkipBack size={18} fill="currentColor" />
         </button>
-        <button
-          type="button"
-          className="mini-play"
-          onClick={() => player.toggle()}
-          aria-label={player.playing ? '暂停' : '播放'}
-          title={player.playing ? '暂停' : '播放'}
-        >
-          {player.playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
-        </button>
+        <PlayLook toggle={player.toggle} playing={player.playing} />
         <button type="button" className="icon-button" onClick={() => player.next()} aria-label="下一首" title="下一首">
           <SkipForward size={18} fill="currentColor" />
         </button>
       </div>
 
-      <div className="mini-right">
-        <span className="mini-time">
-          {formatTime(player.position)} / {formatTime(player.duration || track.durationSeconds)}
+      <div className="bar-right">
+        <span className="bar-time">
+          {formatTime(player.position)} / {formatTime(total)}
         </span>
 
-        <div className="mini-volume">
-          <VolumeIcon value={player.volume} />
-          <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
-        </div>
+        <button
+          type="button"
+          className={`icon-button favorite ${player.favorite ? 'is-on' : ''}`}
+          onClick={() => void player.toggleFavorite()}
+          aria-label={player.favorite ? '取消收藏' : '收藏'}
+          title={player.favorite ? '取消收藏' : '收藏'}
+        >
+          <Heart size={17} fill={player.favorite ? 'currentColor' : 'none'} />
+        </button>
 
         <button
           type="button"
@@ -164,24 +258,36 @@ export function MiniPlayer({
           <ListMusic size={16} />
         </button>
 
-        <button type="button" className="icon-button" onClick={onExpand} aria-label="展开播放页" title="展开播放页">
-          <Maximize2 size={16} />
+        <div className="bar-volume">
+          <VolumeIcon value={player.volume} />
+          <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
+        </div>
+
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onToggleStage}
+          aria-label={expanded ? '收起播放页' : '展开播放页'}
+          title={expanded ? '收起播放页' : '展开播放页'}
+        >
+          {expanded ? <ChevronDown size={18} /> : <Maximize2 size={16} />}
         </button>
       </div>
-    </div>
+    </footer>
   );
 }
 
-export function PlayerScreen({
+/** 播放页内容层：大封面 + 歌词，坐在同一条 bar 上面（bar 不动）。 */
+export function PlayerStage({
   player,
-  onClose,
-  onToggleQueue,
-  queueOpen,
+  open,
+  coverRef,
+  metaRef,
 }: {
   player: Player;
-  onClose: () => void;
-  onToggleQueue: () => void;
-  queueOpen: boolean;
+  open: boolean;
+  coverRef: React.RefObject<HTMLDivElement | null>;
+  metaRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const track = player.current;
   const linesRef = useRef<HTMLDivElement | null>(null);
@@ -208,14 +314,6 @@ export function PlayerScreen({
     activeLineRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [activeIndex]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   if (!track) return null;
 
   const qualityLabel =
@@ -228,21 +326,8 @@ export function PlayerScreen({
           : '标准音质';
 
   return (
-    <div className="player-screen">
+    <div className={`player-screen ${open ? 'is-open' : ''}`} aria-hidden={!open}>
       <header className="player-head">
-        <button type="button" className="icon-button" onClick={onClose} aria-label="收起播放页" title="收起播放页">
-          <ChevronDown size={22} />
-        </button>
-        {/* 队列按钮放左边：右侧浮层打开时不会把自己盖住。 */}
-        <button
-          type="button"
-          className={`icon-button ${queueOpen ? 'is-on' : ''}`}
-          onClick={onToggleQueue}
-          aria-label="播放队列"
-          title="播放队列"
-        >
-          <ListMusic size={17} />
-        </button>
         <div className="player-head-text">
           <span className="player-eyebrow">正在播放</span>
           <span className="player-album">{track.album?.title ?? '华为音乐'}</span>
@@ -252,9 +337,13 @@ export function PlayerScreen({
 
       <div className="player-body">
         <div className="player-left">
-          <Cover src={track.coverUrl} radius={20} className="player-cover" />
-          <div className="player-info">
-            <h1 className="player-title">{track.title}</h1>
+          <div className="player-cover-wrap" ref={coverRef}>
+            <Cover src={track.coverUrl} radius={0} className="player-cover-img" />
+          </div>
+          <div className="player-info" ref={metaRef}>
+            <h1 className="player-title" title={track.title}>
+              {track.title}
+            </h1>
             <p className="player-artist">{artistsOf(track)}</p>
           </div>
         </div>
@@ -292,75 +381,6 @@ export function PlayerScreen({
           )}
         </div>
       </div>
-
-      <footer className="player-foot">
-        <div className="player-progress">
-          <span className="time">{formatTime(player.position)}</span>
-          <Scrubber
-            value={player.position}
-            max={player.duration || track.durationSeconds || 0}
-            onCommit={value => player.seek(value)}
-          />
-          <span className="time">{formatTime(player.duration || track.durationSeconds)}</span>
-        </div>
-
-        <div className="player-bar">
-          <div className="player-extra">
-            <button
-              type="button"
-              className={`icon-button favorite ${player.favorite ? 'is-on' : ''}`}
-              onClick={() => void player.toggleFavorite()}
-              aria-label={player.favorite ? '取消收藏' : '收藏'}
-              title={player.favorite ? '取消收藏' : '收藏'}
-            >
-              <Heart size={18} fill={player.favorite ? 'currentColor' : 'none'} />
-            </button>
-          </div>
-
-          <div className="player-controls">
-            <button
-              type="button"
-              className={`icon-button ${player.shuffle ? 'is-on' : ''}`}
-              onClick={player.toggleShuffle}
-              aria-label="随机播放"
-              title="随机播放"
-            >
-              <Shuffle size={18} />
-            </button>
-            <button type="button" className="icon-button" onClick={() => player.previous()} aria-label="上一首" title="上一首">
-              <SkipBack size={22} fill="currentColor" />
-            </button>
-            <PlayLook toggle={player.toggle} playing={player.playing} />
-            <button type="button" className="icon-button" onClick={() => player.next()} aria-label="下一首" title="下一首">
-              <SkipForward size={22} fill="currentColor" />
-            </button>
-            <button
-              type="button"
-              className={`icon-button ${player.repeat !== 'off' ? 'is-on' : ''}`}
-              onClick={player.toggleRepeat}
-              aria-label="循环模式"
-              title={player.repeat === 'one' ? '单曲循环' : player.repeat === 'all' ? '列表循环' : '不循环'}
-            >
-              {player.repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
-            </button>
-          </div>
-
-          <div className="player-volume">
-            <VolumeIcon value={player.volume} />
-            <Scrubber value={player.volume} max={1} onCommit={player.setVolume} className="volume" />
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
-
-function PlayLook({ playing, toggle }: { playing: boolean; toggle: () => void }) {
-  return (
-    <button type="button" className="player-play" onClick={toggle} aria-label={playing ? '暂停' : '播放'} title={playing ? '暂停' : '播放'}>
-      {playing ? <Pause size={26} fill="currentColor" /> : <Play size={26} fill="currentColor" style={{ marginLeft: 3 }} />}
-    </button>
-  );
-}
-
-export type { Track };

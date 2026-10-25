@@ -5,7 +5,7 @@ import { api } from './lib/api';
 import { usePlayer } from './lib/player';
 import { FavoritesScreen, HomeScreen, LoginScreen } from './screens';
 import { HallScreen, PlaylistScreen, PlaylistsScreen, SearchScreen, SettingsScreen, SidebarFooter } from './pages';
-import { MiniPlayer, PlayerScreen } from './PlayerView';
+import { PlayerShell } from './PlayerShell';
 import { QueuePanel, TrackMenu, type MenuTarget } from './QueuePanel';
 import logo from './assets/app-icon.png';
 
@@ -85,9 +85,14 @@ export function App() {
       setVolume(next);
       void api.updateSettings({ volume: next }).catch(() => undefined);
     },
-    // 循环/随机状态以前只活在内存里，重启就回到默认值；现在跟着设置一起落盘。
+    // 播放模式（顺序/列表/单曲/随机）跟着设置一起落盘。
     onPreferencesChange: next => {
-      void api.updateSettings({ repeatMode: next.repeat, shuffle: next.shuffle }).catch(() => undefined);
+      void api
+        .updateSettings({
+          repeatMode: next === 'sequential' ? 'off' : next === 'shuffle' ? 'off' : next,
+          shuffle: next === 'shuffle',
+        })
+        .catch(() => undefined);
     },
   });
 
@@ -255,10 +260,12 @@ export function App() {
     });
   }, [booting, auth?.authenticated]);
 
-  // 循环/随机以落盘的设置为准（设置页改不了，但播放页按钮会写回去）。
+  // 播放模式以落盘的设置为准（条上的模式按钮会写回去）。
   useEffect(() => {
     if (!settings) return;
-    playerRef.current.setPreferences({ repeat: settings.repeatMode, shuffle: settings.shuffle });
+    playerRef.current.setPreferences(
+      settings.shuffle ? 'shuffle' : settings.repeatMode === 'one' ? 'one' : settings.repeatMode === 'all' ? 'all' : 'sequential',
+    );
   }, [settings?.repeatMode, settings?.shuffle]);
 
   // 空格：播放/暂停（输入框里不抢键）；Esc 收播放页。
@@ -559,9 +566,11 @@ export function App() {
         </main>
       </div>
 
-      <MiniPlayer
+      <PlayerShell
         player={player}
-        onExpand={() => setPlayerOpen(true)}
+        open={playerOpen}
+        onOpen={() => setPlayerOpen(true)}
+        onClose={() => setPlayerOpen(false)}
         onToggleQueue={() => setQueueOpen(value => !value)}
         queueOpen={queueOpen}
       />
@@ -577,15 +586,6 @@ export function App() {
           onAddToQueue={() => handleAddToQueue(menu.track)}
         />
       ) : null}
-
-      {playerOpen && (
-        <PlayerScreen
-          player={player}
-          onClose={() => setPlayerOpen(false)}
-          onToggleQueue={() => setQueueOpen(value => !value)}
-          queueOpen={queueOpen}
-        />
-      )}
 
       {loginPending ? (
         <div className="login-strip">

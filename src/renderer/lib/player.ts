@@ -1,16 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { LyricsDoc, RepeatMode, Track } from '../../shared/types';
+import type { LyricsDoc, Track } from '../../shared/types';
 import { api } from './api';
 
 type Quality = 'standard' | 'lossless';
+
+/**
+ * 播放模式：顺序 / 列表循环 / 单曲循环 / 随机。
+ * 界面上只有「一个按钮」，点一下切一格，所以这里是一个枚举，
+ * 不是 repeat + shuffle 两个正交开关。
+ */
+export type PlayMode = 'sequential' | 'all' | 'one' | 'shuffle';
+
+export function nextMode(mode: PlayMode): PlayMode {
+  if (mode === 'sequential') return 'all';
+  if (mode === 'all') return 'one';
+  if (mode === 'one') return 'shuffle';
+  return 'sequential';
+}
+
+export function modeLabel(mode: PlayMode): string {
+  if (mode === 'all') return '列表循环';
+  if (mode === 'one') return '单曲循环';
+  if (mode === 'shuffle') return '随机播放';
+  return '顺序播放';
+}
 
 type Options = {
   quality: Quality;
   volume: number;
   onError: (message: string) => void;
   onVolumeCommit: (volume: number) => void;
-  /** 循环/随机被用户改动时回报，交给 App 落盘。 */
-  onPreferencesChange?: (next: { repeat: RepeatMode; shuffle: boolean }) => void;
+  /** 播放模式被用户改动时回报，交给 App 落盘。 */
+  onPreferencesChange?: (next: PlayMode) => void;
 };
 
 /**
@@ -27,15 +48,15 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
   const [duration, setDuration] = useState(0);
   const [lyrics, setLyrics] = useState<LyricsDoc | null>(null);
   const [favorite, setFavorite] = useState(false);
-  const [repeat, setRepeat] = useState<RepeatMode>('all');
-  const [shuffle, setShuffle] = useState(false);
+  const [mode, setModeState] = useState<PlayMode>('sequential');
   const [actualQuality, setActualQuality] = useState<'standard' | 'lossless' | 'unknown'>('unknown');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const queueRef = useRef<Track[]>([]);
   const indexRef = useRef(-1);
-  const repeatRef = useRef<RepeatMode>(repeat);
-  const shuffleRef = useRef(shuffle);
+  const modeRef = useRef<PlayMode>(mode);
+  /** 随机走过的索引，供「上一首」回退。 */
+  const shuffleHistory = useRef<number[]>([]);
   const loadToken = useRef(0);
   const onErrorRef = useRef(onError);
   const onPreferencesRef = useRef(onPreferencesChange);
@@ -46,8 +67,7 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
 
   queueRef.current = queue;
   indexRef.current = index;
-  repeatRef.current = repeat;
-  shuffleRef.current = shuffle;
+  modeRef.current = mode;
   onErrorRef.current = onError;
   onPreferencesRef.current = onPreferencesChange;
 
@@ -173,11 +193,16 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
     const i = indexRef.current;
     pendingSeek.current = null;
 
-    if (auto && repeatRef.current === 'one') {
+    const mode = modeRef.current;
+
+    // 自动播完时的单曲循环；手动点「下一首」仍然往下走。
+    if (auto && mode === 'one') {
       setNonce(value => value + 1);
       return;
     }
-    if (shuffleRef.current && tracks.length > 1) {
+    if (mode === 'shuffle' && tracks.length > 1) {
+      shuffleHistory.current.push(i);
+      if (shuffleHistory.current.length > 200) shuffleHistory.current.shift();
       let target = i;
       while (target === i) target = Math.floor(Math.random() * tracks.length);
       setIndex(target);
@@ -187,7 +212,7 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
       setIndex(i + 1);
       return;
     }
-    if (repeatRef.current === 'all') {
+    if (mode === 'all') {
       setIndex(0);
       return;
     }
@@ -199,6 +224,14 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
     pendingSeek.current = null;
     if (audio && audio.currentTime > 4) {
       audio.currentTime = 0;
+      return;
+    }
+    // 随机模式回退到「上一首随机到的」，没有历史再顺序退。
+    const history = shuffleHistory.current;
+    if (modeRef.current === 'shuffle' && history.length > 0) {
+      const target = history.pop() as number;
+      setIndex(target);
+      setNonce(value => value + 1);
       return;
     }
     setIndex(value => (value > 0 ? value - 1 : 0));
@@ -369,26 +402,19 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
     }
   }, [favorite]);
 
-  const toggleRepeat = useCallback(() => {
-    setRepeat(value => {
-      const next = value === 'all' ? 'one' : value === 'one' ? 'off' : 'all';
-      onPreferencesRef.current?.({ repeat: next, shuffle: shuffleRef.current });
+  /** 一个按钮四个状态：顺序 → 列表循环 → 单曲循环 → 随机 → 顺序。 */
+  const cycleMode = useCallback(() => {
+    setModeState(value => {
+      const next = nextMode(value);
+      onPreferencesRef.current?.(next);
       return next;
     });
   }, []);
 
-  const toggleShuffle = useCallback(() => {
-    setShuffle(value => {
-      const next = !value;
-      onPreferencesRef.current?.({ repeat: repeatRef.current, shuffle: next });
-      return next;
-    });
-  }, []);
-
-  /** 启动时把落盘的循环/随机状态灌进按钮（之前是硬编码 all + false）。 */
-  const setPreferences = useCallback((next: { repeat?: RepeatMode; shuffle?: boolean }) => {
-    if (next.repeat) setRepeat(next.repeat);
-    if (typeof next.shuffle === 'boolean') setShuffle(next.shuffle);
+  /** 启动时把落盘的模式灌进按钮（以前是硬编码 all + false）。 */
+  const setPreferences = useCallback((next: PlayMode) => {
+    shuffleHistory.current = [];
+    setModeState(next);
   }, []);
 
   return {
@@ -402,8 +428,7 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
     volume,
     lyrics,
     favorite,
-    repeat,
-    shuffle,
+    mode,
     actualQuality,
     quality,
     playFrom,
@@ -420,8 +445,7 @@ export function usePlayer({ quality, volume, onError, onVolumeCommit, onPreferen
     setVolume,
     reload,
     toggleFavorite,
-    toggleRepeat,
-    toggleShuffle,
+    cycleMode,
     setPreferences,
     positionCommit,
   };
