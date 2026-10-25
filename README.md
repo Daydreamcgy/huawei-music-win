@@ -105,7 +105,7 @@ npm run dist:win          # → release/win-x64/
 
 | 东西 | 路径 |
 |---|---|
-| 安装包 | `release\win-x64\huawei-music-desktop-0.0.3-win-x64-setup-internal.exe`（约 107 MB，未签名） |
+| 安装包 | `release\win-x64\huawei-music-desktop-0.0.4-win-x64-setup-internal.exe`（约 107 MB，未签名） |
 | 免安装目录 | `release\win-x64\win-unpacked\华为音乐.exe` |
 | 安装后有快捷方式 | `%LOCALAPPDATA%\Programs\huawei-music-desktop\华为音乐.exe`（NSIS 关掉了自动建桌面图标） |
 | 安装包版的数据目录 | `%APPDATA%\huawei-music-desktop`（按 `package.json` 的 `name`，不是 productName） |
