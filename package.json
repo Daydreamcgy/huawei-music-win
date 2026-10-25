@@ -1,14 +1,14 @@
 {
   "name": "huawei-music-desktop",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "out/main/index.js",
-  "description": "华为音乐第三方客户端（学习版）· 非官方，仅供学习研究",
+  "description": "华为音乐的第三方 Windows 客户端（非官方，未获授权 · 需自备账号与会员 · 不提供音源）",
   "license": "AGPL-3.0-only",
   "desktopName": "huawei-music-desktop.desktop",
   "author": {
-    "name": "Huawei Music Desktop (unofficial internal build)"
+    "name": "Huawei Music Desktop (unofficial)"
   },
   "engines": {
     "node": ">=22.15.0"
@@ -60,12 +60,12 @@
     "vitest": "5.0.4"
   },
   "build": {
-    "appId": "org.hwmusicdesktop.unofficial.internal",
-    "productName": "华为音乐",
+    "appId": "org.hwmusicdesktop.unofficial",
+    "productName": "华为音乐（非官方）",
     "asar": true,
     "npmRebuild": false,
     "publish": null,
-    "artifactName": "${name}-${version}-${os}-${arch}-internal.${ext}",
+    "artifactName": "${name}-${version}-${os}-${arch}-unofficial.${ext}",
     "directories": {
       "output": "release"
     },
@@ -94,7 +94,7 @@
         }
       ],
       "forceCodeSigning": false,
-      "artifactName": "${name}-${version}-${os}-${arch}-setup-internal.${ext}"
+      "artifactName": "${name}-${version}-${os}-${arch}-setup-unofficial.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -122,11 +122,11 @@
       "syncDesktopName": true,
       "executableName": "huawei-music-desktop",
       "category": "AudioVideo;Audio;Music",
-      "synopsis": "Unofficial third-party Huawei Music client (study build)",
+      "synopsis": "Unofficial third-party Huawei Music client for Windows",
       "desktop": {
         "entry": {
-          "Name": "华为音乐第三方客户端（学习版）",
-          "Comment": "非官方第三方客户端，仅供学习研究，未获华为授权"
+          "Name": "华为音乐（非官方客户端）",
+          "Comment": "非官方第三方客户端，与华为无隶属或授权关系"
         }
       }
     }

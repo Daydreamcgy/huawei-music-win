@@ -17,6 +17,9 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const result = spawnSync(npm, ['run', 'build'], { stdio: 'inherit', shell: process.platform === 'win32' });
 if (result.status !== 0) process.exit(result.status ?? 1);
 const config = { directories: { output: `release/${target}-${architecture}` } };
+// 离线/无外网时可以直接复用已安装的 electron 二进制，跳过 electron-builder 的下载：
+//   $env:ELECTRON_DIST = (Resolve-Path node_modules\electron\dist).Path; npm run dist:win
+if (process.env.ELECTRON_DIST) config.electronDist = process.env.ELECTRON_DIST;
 const names = target === 'win' ? ['nsis'] : target === 'mac' ? ['dmg'] : ['AppImage'];
 if (target === 'win') {
   config.win = { signExecutable: false, forceCodeSigning: false, requestedExecutionLevel: 'asInvoker' };

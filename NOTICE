@@ -1,5 +1,24 @@
-华为音乐第三方客户端（学习版）
+华为音乐（非官方 Windows 客户端）
 Copyright (C) 2026 本项目作者
+
+本文件同时承担 AGPL-3.0 要求的「修改声明」与第三方归属说明。
+
+一、来源与本项目的修改（AGPL-3.0 §5(a)）
+
+本项目的协议层（src/*.mjs）、主进程与初始渲染结构，基于上游项目：
+
+  https://github.com/talongao/huawei-music-desktop
+  License: AGPL-3.0-only（见上游仓库的 LICENSE 与 NOTICE）
+  上游 NOTICE 记为「Copyright (C) 2026 本项目作者」
+
+原项目版权归其作者所有。本项目自 2026-10-24 起在其基础上修改，主要改动为：
+重写渲染层并按鸿蒙电脑版观感重做界面、播放条与播放页合成同一条、新增播放队列、
+新增 Windows 安装程序与托盘行为、替换应用图标。
+
+自 2026-10-24 起的所有修改由本项目作者完成，并以 AGPL-3.0-only 授权。
+本项目不是上游项目的官方分支，也不代表上游作者的立场或认可。
+
+二、许可
 
 This program is free software: you can redistribute it and/or modify it under the terms of the
 GNU Affero General Public License as published by the Free Software Foundation, either version 3
@@ -14,12 +33,15 @@ If not, see <https://www.gnu.org/licenses/>.
 
 SPDX-License-Identifier: AGPL-3.0-only
 
-第三方归属与例外
-----------------
-- 应用与托盘图标由 Lucide 图标集的 music 字形生成（ISC 许可），版权与许可声明见
-  build/icon.LICENSE.txt。
+三、第三方归属
+
+- 应用与托盘图标：本项目原创（build/icon-src.svg），不含任何厂商官方标识，
+  声明见 build/icon.LICENSE.txt。
+- 界面线性图标：Lucide 图标集（ISC），运行时渲染，不打包其图形资源。
 - 运行时依赖（Electron、React、undici 等）按其各自许可证分发，见各依赖包内声明。
-- 本项目不包含第三方客户端源码；接口形态来自公开网络资源与本人账号的兼容性实验，
-  相关记录见 docs/API_CONTRACT.md 与 docs/authorized-feature-validation.md。
-- 代码许可不代表获得华为服务、接口、商标或音乐内容的任何许可；详见 README 的
-  免责声明与使用边界。
+- 除上述上游项目外，本项目不包含其他第三方客户端源码；接口形态来自公开网络资源与本人账号的兼容性实验，
+  相关记录见 docs/API_CONTRACT.md 与 docs/login-research.md。
+
+四、边界
+
+代码许可不代表获得华为服务、接口、商标或音乐内容的任何许可。详见 README 的免责声明。

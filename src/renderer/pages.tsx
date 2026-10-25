@@ -616,8 +616,8 @@ export function SettingsScreen({
       <section className="settings-group">
         <h2 className="settings-group-title">关于</h2>
         <SettingRow
-          title="华为音乐 · 学习版"
-          hint="0.0.4 内部版 · 非官方客户端，仅供个人学习研究，不得分发"
+          title="华为音乐 · 非官方客户端"
+          hint="0.1.0 · AGPL-3.0 · 与华为无隶属或授权关系"
           control={
             <button type="button" className="ghost-button" onClick={onQuit}>
               退出程序
@@ -626,6 +626,9 @@ export function SettingsScreen({
         />
         <p className="settings-note">
           <Info size={13} /> 音乐与账号数据来自华为音乐官方接口；客户端不代理、不分发任何内容，OAuth 身份属于华为官方应用。
+        </p>
+        <p className="settings-note">
+          <Info size={13} /> 本项目基于 talongao/huawei-music-desktop（AGPL-3.0）修改而来，修改声明见仓库根目录的 NOTICE。
         </p>
       </section>
     </div>

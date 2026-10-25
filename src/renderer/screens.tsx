@@ -266,7 +266,7 @@ export function LoginScreen({
         <p className="login-note">
           登录在官方页面上完成，客户端不接触你的密码。
           <br />
-          非官方客户端，仅供个人使用。
+          非官方客户端，与华为无隶属关系，不提供任何音源。
         </p>
         {message ? <p className="login-status">{message}</p> : null}
       </div>
